@@ -25,7 +25,7 @@ For the at-a-glance picture, see the "How It Works" diagram in the [README](../R
 
 Recipes for live or system data are also verification contracts.
 They tell the agent to inspect the actual named source before writing parser or renderer code, avoid guessed field names and response shapes, and verify the finished server action or widget against that same live source before reporting done.
-The bundled quota recipe set covers Claude Code, Codex, Cursor, GitHub Copilot, and Grok.
+The current model-family trackers are Gemini through Antigravity and GPT through Codex. Additional bundled quota recipes cover Claude Code, Cursor, GitHub Copilot, and Grok.
 Provider-specific acquisition and refresh contracts live in the matching recipe.
 
 **Background vs view refresh.**
@@ -38,8 +38,8 @@ An unchanged `server.ts` module instance stays alive across invokes and backgrou
 ## Agent runtime
 
 - **Bundled ACP adapters.**
-  Built-in Claude Code and Codex launch `out/adapters/<name>/index.mjs`, wrapping the local authenticated CLI in isolation from user-level agent config.
-  Codex still reuses only the top-level `model` from `$CODEX_HOME/config.toml` (or `~/.codex/config.toml`) so `--ignore-user-config` does not force an unsupported default.
+  Built-in Gemini and GPT launch `out/adapters/antigravity/index.mjs` and `out/adapters/codex/index.mjs`, wrapping the authenticated `agy` and `codex` CLIs in the exact active extension workspace.
+  Antigravity uses a temporary agent definition that opts out of ambient user customizations and MCP servers, enables its verified autonomous permission mode, starts a clean project with slash expansion disabled, grants no additional directory, and resumes the captured conversation id. Codex ignores user configuration and rules, while reusing only the top-level `model` from `$CODEX_HOME/config.toml` (or `~/.codex/config.toml`) so the clean-room launch does not force an unsupported default.
 - **Terminal failure semantics.**
   CLI, authentication, rate-limit, and provider failures reject through ACP with typed, bounded messages; raw provider payloads are never streamed or logged as user-facing errors.
   Baby Menu also treats a completed ACP refusal as a failed editing turn, records failed diagnostics and telemetry, and strips nested transport error wrappers before displaying the safe message.
@@ -73,13 +73,13 @@ An unchanged `server.ts` module instance stays alive across invokes and backgrou
   The Homebrew Cask relaunches Baby Menu after an upgrade only when it was already running.
 - **Anonymous telemetry.**
   Packaged builds fire best-effort Umami events for app start, popover open (also a `/popover` page view), agent turn status, and agent switches.
-  Built-in agents report as `claude` or `codex`; custom agents report only as `custom`.
+  Built-in agents report as `gemini` or `gpt`; custom agents report only as `custom`.
 
 ## Repository layout
 
 | Path                        | What lives here                                                                        |
 | --------------------------- | -------------------------------------------------------------------------------------- |
-| `src/adapters/`             | Bundled clean-room ACP adapters for built-in Claude Code and Codex agents              |
+| `src/adapters/`             | Bundled clean-room ACP adapters for built-in Gemini/Antigravity and GPT/Codex agents   |
 | `src/main/`                 | Electron lifecycle, tray, popover, IPC, git, agent runtime, update checks              |
 | `src/preload/index.ts`      | The stable `window.babyMenu` bridge                                                    |
 | `src/renderer/`             | React UI: `AgentChat`, `WidgetHost`, custom layouts, settings, updates, layout reloads, app controls |

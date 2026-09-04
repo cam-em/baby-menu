@@ -6,8 +6,8 @@ import { useEffect, useRef, useState } from "react";
 // a module that mixes component and non-component exports forces a full reload.
 
 const examplePrompts = [
-  "add a widget tracking my weekly claude code quota",
-  "add a widget showing current cpu and memory usage %",
+  "add a widget tracking my Gemini quota from Antigravity",
+  "add a widget tracking my GPT quota from Codex",
 ];
 
 const COPIED_FEEDBACK_MS = 1500;

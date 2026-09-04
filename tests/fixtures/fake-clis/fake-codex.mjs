@@ -32,6 +32,10 @@ if (prompt.includes("EXIT_NONZERO")) {
   process.exit(42);
 }
 
+if (prompt.includes("NON_JSON")) {
+  process.stdout.write("private stdout payload\n");
+}
+
 if (prompt.includes("PROVIDER_AUTH_ERROR")) {
   emit({ type: "thread.started", thread_id: "fake-thread" });
   emit({ type: "turn.started" });

@@ -34,7 +34,10 @@ export function createPreferencesService({
   const filePath = join(userDataDir, "preferences.json");
 
   function normalizePreferences(preferences: BabyMenuPreferences): BabyMenuPreferences {
-    const agentName = preferences.agentName?.trim();
+    const savedAgentName = preferences.agentName?.trim();
+    // Releases before Gemini/GPT used provider CLI names as built-in ids.
+    // Migrate only those retired reserved ids; all other custom ids survive.
+    const agentName = savedAgentName === "claude" ? "gemini" : savedAgentName === "codex" ? "gpt" : savedAgentName;
     return {
       openAtLogin: allowOpenAtLogin && preferences.openAtLogin,
       ...(agentName ? { agentName } : {}),

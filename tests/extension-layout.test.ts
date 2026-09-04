@@ -25,7 +25,8 @@ describe("extension layout", () => {
     expect(components).toContain("text-3xl");
     expect(components).toContain("text-signal-live");
     expect(components).toContain("examples");
-    expect(components).toContain("add a widget tracking my weekly claude code quota");
+    expect(components).toContain("add a widget tracking my Gemini quota from Antigravity");
+    expect(components).toContain("add a widget tracking my GPT quota from Codex");
     expect(components).not.toContain("quick asks");
     expect(components).not.toContain("className=\"src\"");
     // Migrated off legacy inline token styles.

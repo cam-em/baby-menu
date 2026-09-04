@@ -16,6 +16,7 @@ describe("loadRecipes", () => {
       "codex-quota",
       "copilot-quota",
       "cursor-quota",
+      "gemini-antigravity-quota",
       "grok-quota",
     ]);
     expect(recipes.every((recipe) => recipe.title.length > 0)).toBe(true);
@@ -27,6 +28,7 @@ describe("loadRecipes", () => {
       new URL("../extensions/recipes/codex-quota.html", import.meta.url),
       new URL("../extensions/recipes/copilot-quota.html", import.meta.url),
       new URL("../extensions/recipes/cursor-quota.html", import.meta.url),
+      new URL("../extensions/recipes/gemini-antigravity-quota.html", import.meta.url),
       new URL("../extensions/recipes/grok-quota.html", import.meta.url),
     ];
 
@@ -43,6 +45,27 @@ describe("loadRecipes", () => {
       expect(html).not.toContain("<style>");
       expect(html).not.toMatch(/Review\s+<a|for discovery and behavior ideas|another repository/i);
     }
+  });
+
+  it("defines Gemini quota only from Antigravity's structured provider-owned usage command", async () => {
+    const html = await readFile(new URL("../extensions/recipes/gemini-antigravity-quota.html", import.meta.url), "utf8");
+
+    expect(html).toContain("agy --output-format stream-json --print='/usage'");
+    expect(html).toContain('<code>event: "command_result"</code>');
+    expect(html).toContain('<code>command.data.groups</code>');
+    expect(html).toContain('<code>remaining_fraction</code>');
+    expect(html).toContain('<code>reset_time</code>');
+    expect(html).toContain("preserve the provider-reported group, bucket, and window labels");
+    expect(html).toContain("Do not infer, rename, or synthesize quota windows");
+    expect(html).toContain("AGY_CLI_HIDE_ACCOUNT_INFO=1");
+    expect(html).toContain("Do not install or invoke <code>quota-axi</code>");
+    expect(html).not.toMatch(/access[_ -]?token|refresh[_ -]?token|cookie/i);
+  });
+
+  it("describes Codex quota as the GPT tracker", async () => {
+    const html = await readFile(new URL("../extensions/recipes/codex-quota.html", import.meta.url), "utf8");
+    expect(html).toContain("GPT (Codex) Quota Widget Recipe");
+    expect(html).toContain("Track GPT usage through Codex");
   });
 
   it("keeps Copilot transient 403 handling separate from token rejection", async () => {

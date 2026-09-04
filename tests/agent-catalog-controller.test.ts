@@ -23,7 +23,7 @@ describe("agent-catalog-controller", () => {
       resolveAdapterPath: (adapter) => `/o/${adapter}.js`,
       adapterLauncher: ["node"],
       commandExists: () => true,
-      getActiveAgentName: () => overrides.active ?? "claude",
+      getActiveAgentName: () => overrides.active ?? "gemini",
       onOverridesChange: overrides.onChange,
     });
   }
@@ -34,8 +34,8 @@ describe("agent-catalog-controller", () => {
 
   it("starts with only the built-ins and their adapter overrides", async () => {
     const controller = await create().load();
-    expect(controller.options().map((o) => o.name)).toEqual(["claude", "codex"]);
-    expect(controller.overrides).toEqual({ claude: "node /o/claude.js", codex: "node /o/codex.js" });
+    expect(controller.options().map((o) => o.name)).toEqual(["gemini", "gpt"]);
+    expect(controller.overrides).toEqual({ gemini: "node /o/antigravity.js", gpt: "node /o/codex.js" });
   });
 
   it("adds a custom agent, persists it, rebuilds overrides, and notifies", async () => {
@@ -44,60 +44,60 @@ describe("agent-catalog-controller", () => {
 
     const options = controller.options();
     void options;
-    await controller.addAgent({ name: "gemini", label: "Gemini", command: "gemini acp" });
+    await controller.addAgent({ name: "rovo", label: "Rovo", command: "rovo acp" });
 
-    expect(controller.options().find((o) => o.name === "gemini")).toMatchObject({
-      name: "gemini",
-      label: "Gemini",
+    expect(controller.options().find((o) => o.name === "rovo")).toMatchObject({
+      name: "rovo",
+      label: "Rovo",
       available: true,
       custom: true,
-      command: "gemini acp",
+      command: "rovo acp",
     });
     expect(controller.overrides).toEqual({
-      claude: "node /o/claude.js",
-      codex: "node /o/codex.js",
-      gemini: "gemini acp",
+      gemini: "node /o/antigravity.js",
+      gpt: "node /o/codex.js",
+      rovo: "rovo acp",
     });
     expect(onChange).toHaveBeenLastCalledWith(controller.overrides);
-    expect(await readJson()).toEqual([{ name: "gemini", label: "Gemini", command: "gemini", launchCommand: "gemini acp" }]);
+    expect(await readJson()).toEqual([{ name: "rovo", label: "Rovo", command: "rovo", launchCommand: "rovo acp" }]);
   });
 
   it("loads previously persisted custom agents", async () => {
     const first = await create().load();
-    await first.addAgent({ name: "gemini", command: "gemini acp" });
+    await first.addAgent({ name: "rovo", command: "rovo acp" });
 
     const second = await create().load();
-    expect(second.options().map((o) => o.name)).toEqual(["claude", "codex", "gemini"]);
+    expect(second.options().map((o) => o.name)).toEqual(["gemini", "gpt", "rovo"]);
   });
 
   it("rejects adding a name that collides with a built-in", async () => {
     const controller = await create().load();
-    await expect(controller.addAgent({ name: "claude", command: "x" })).rejects.toThrow(/built-in/i);
+    await expect(controller.addAgent({ name: "gemini", command: "x" })).rejects.toThrow(/built-in/i);
   });
 
   it("updates an existing custom agent's command", async () => {
     const controller = await create().load();
-    await controller.addAgent({ name: "gemini", command: "gemini acp" });
-    await controller.updateAgent("gemini", { command: "gemini acp --beta", label: "Gemini Beta" });
+    await controller.addAgent({ name: "rovo", command: "rovo acp" });
+    await controller.updateAgent("rovo", { command: "rovo acp --beta", label: "Rovo Beta" });
 
-    expect(controller.overrides.gemini).toBe("gemini acp --beta");
-    expect(controller.options().find((o) => o.name === "gemini")?.label).toBe("Gemini Beta");
+    expect(controller.overrides.rovo).toBe("rovo acp --beta");
+    expect(controller.options().find((o) => o.name === "rovo")?.label).toBe("Rovo Beta");
   });
 
   it("removes a custom agent and persists the removal", async () => {
-    const controller = await create({ active: "claude" }).load();
-    await controller.addAgent({ name: "gemini", command: "gemini acp" });
-    await controller.removeAgent("gemini");
+    const controller = await create({ active: "gemini" }).load();
+    await controller.addAgent({ name: "rovo", command: "rovo acp" });
+    await controller.removeAgent("rovo");
 
-    expect(controller.options().map((o) => o.name)).toEqual(["claude", "codex"]);
-    expect(controller.overrides.gemini).toBeUndefined();
+    expect(controller.options().map((o) => o.name)).toEqual(["gemini", "gpt"]);
+    expect(controller.overrides.rovo).toBeUndefined();
     expect(await readJson()).toEqual([]);
   });
 
   it("refuses to remove the currently active agent", async () => {
-    const controller = await create({ active: "gemini" }).load();
-    await controller.addAgent({ name: "gemini", command: "gemini acp" });
-    await expect(controller.removeAgent("gemini")).rejects.toThrow(/active|switch/i);
-    expect(controller.options().find((o) => o.name === "gemini")).toBeTruthy();
+    const controller = await create({ active: "rovo" }).load();
+    await controller.addAgent({ name: "rovo", command: "rovo acp" });
+    await expect(controller.removeAgent("rovo")).rejects.toThrow(/active|switch/i);
+    expect(controller.options().find((o) => o.name === "rovo")).toBeTruthy();
   });
 });

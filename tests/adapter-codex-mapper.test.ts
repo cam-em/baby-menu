@@ -101,7 +101,7 @@ describe("mapCodexEvent (codex exec --json)", () => {
     expect(result.terminalError).toMatchObject({
       name: "AdapterTurnError",
       code: "AUTHENTICATION_FAILED",
-      message: "Codex is not authenticated. Run `codex login` and try again.",
+      message: "GPT is not authenticated in Codex. Run `codex login` and try again.",
     });
     expect(result.terminalError?.message).not.toContain("sk-private-fixture");
   });

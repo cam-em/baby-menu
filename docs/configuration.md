@@ -13,20 +13,22 @@ Read-only or otherwise invalid targets are skipped with a log message instead of
 
 ## Choosing an agent
 
-Baby Menu detects supported agents in order: Claude Code (`claude`), then Codex (`codex`).
-Both run through bundled clean-room ACP adapters that drive the authenticated local CLI without inheriting user-level settings, skills, MCP servers, or extra rules.
+Baby Menu detects supported agents in order: Gemini through Antigravity (`agy`), then GPT through Codex (`codex`).
+Both run through bundled clean-room ACP adapters in the exact active extension workspace. Gemini uses Antigravity's verified autonomous permission mode; GPT uses Codex's non-interactive approval bypass inside Baby Menu's external Keep / Undo safety boundary. Their built-in ids are `gemini` and `gpt`.
 
 | Mechanism | Effect |
 | --- | --- |
 | Settings | Persist an agent choice across launches; add, edit, or remove custom agents. |
 | `BABY_MENU_AGENT=<name>` | Override auto-detection before a preference is saved. |
-| `agents.json` | Override or append catalog entries manually. |
+| `agents.json` | Append custom catalog entries manually; built-in Gemini/GPT routing is immutable. |
 
 If a send fails, the popover shows bounded, actionable guidance instead of raw provider diagnostics or a generic unavailable hint.
-For built-in agents, authentication failures prompt you to run `codex login` or launch `claude` and complete sign-in before trying again.
+For built-in agents, authentication failures prompt you to open Antigravity and sign in for Gemini or run `codex login` for GPT. Missing commands point to the required `agy` or `codex` install without showing raw provider diagnostics.
 If the failed turn edited files before stopping, Baby Menu keeps those partial changes available for Keep or Undo; a failed turn with no file changes closes cleanly.
 
-### Codex model exception
+### Provider-specific clean-room behavior
+
+The Antigravity adapter uses a temporary agent definition that opts out of ambient user customizations and MCP servers. It creates a fresh project at the exact extension workspace, disables slash-command expansion, grants no extra directory, suppresses account decoration and provider logs, and resumes the captured conversation id on later turns.
 
 The Codex adapter reads only the top-level `model` from `$CODEX_HOME/config.toml` or `~/.codex/config.toml` and passes it as `--model`, because it otherwise runs Codex with `--ignore-user-config`.
 
@@ -34,9 +36,9 @@ The Codex adapter reads only the top-level `model` from `$CODEX_HOME/config.toml
 
 Add agents from Settings (id, optional label, ACP launch command) or by editing `agents.json` directly.
 Packaged mode reads `~/.baby-menu/agents.json`; source mode reads `agents.json` at the repo root.
-Settings-added agents are editable and removable; built-in Claude Code and Codex stay read-only.
+Settings-added agents are editable and removable; built-in Gemini and GPT stay read-only.
 
-Each entry is an object with `name`, optional `label`, `command`, `installHint`, and `launchCommand`.
+Each custom entry is an object with `name`, optional `label`, `command`, `installHint`, and `launchCommand`. Built-in names cannot be overridden.
 Entries with `launchCommand` register as custom [`acpx`](https://github.com/openclaw/acpx) overrides and show as available.
 
 ```json
@@ -92,7 +94,7 @@ Set `BABY_MENU_TELEMETRY=0` in the launch environment to opt out.
 | `BABY_MENU_AGENT=<name>`          | Overrides agent auto-detection when no saved Settings choice exists                                                                                                                                               |
 | `BABY_MENU_AGENT_TIMEOUT_MS=<ms>` | Overrides the embedded-agent request timeout                                                                                                                                                                      |
 | `BABY_MENU_EXTENSIONS_DIR=<dir>`  | Overrides the active extension workspace in source/dev runs. Dev Tailwind scans only `extensions/` and `extensions-dev/`, so overrides outside those paths need matching `@source` coverage for widget utilities. |
-| `CODEX_HOME=<dir>`                | When Codex is the selected built-in agent, points the adapter at `<dir>/config.toml` for the top-level `model`; other Codex user config is still ignored.                                                         |
+| `CODEX_HOME=<dir>`                | When GPT is the selected built-in agent, points the Codex adapter at `<dir>/config.toml` for the top-level `model`; other Codex user config is still ignored.                                                         |
 | `BABY_MENU_TELEMETRY=0`           | Disables packaged-release telemetry; `false` and `off` are also accepted                                                                                                                                          |
 | `BABY_MENU_UMAMI_HOST=<url>`      | Overrides the self-hosted Umami endpoint used by telemetry. Source/dev/test builds are no-op unless a website id is also configured.                                                                               |
 | `BABY_MENU_UMAMI_WEBSITE_ID=<id>` | Overrides or supplies the Umami website id used by telemetry. The release workflow reads this from the GitHub Actions `vars.*` context, not a secret.                                                             |

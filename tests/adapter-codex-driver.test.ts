@@ -2,7 +2,7 @@ import { basename, dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtemp, writeFile, readFile } from "node:fs/promises";
 import { existsSync, watch } from "node:fs";
-import { describe, expect, it, afterEach } from "vitest";
+import { describe, expect, it, afterEach, vi } from "vitest";
 import { CodexDriver } from "../src/adapters/codex/driver";
 import type * as schema from "@agentclientprotocol/sdk";
 
@@ -131,6 +131,25 @@ describe("CodexDriver (against a fake codex CLI)", () => {
     }
   });
 
+  it("does not log raw non-JSON provider stdout", async () => {
+    const writes: string[] = [];
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      writes.push(String(chunk));
+      return true;
+    });
+    process.env.BABY_MENU_ADAPTER_DEBUG = "1";
+    try {
+      const d = makeDriver();
+      await d.start(tmpdir());
+      await d.prompt("NON_JSON", () => {}, new AbortController().signal);
+      expect(writes.join("")).toContain("non-json stdout bytes");
+      expect(writes.join("")).not.toContain("private stdout payload");
+    } finally {
+      delete process.env.BABY_MENU_ADAPTER_DEBUG;
+      stderr.mockRestore();
+    }
+  });
+
   it("rejects a nonzero CLI exit with a typed sanitized error", async () => {
     const d = makeDriver();
     await d.start(tmpdir());
@@ -139,7 +158,7 @@ describe("CodexDriver (against a fake codex CLI)", () => {
     await expect(prompt).rejects.toMatchObject({
       name: "AdapterTurnError",
       code: "CLI_EXIT_FAILED",
-      message: "Codex CLI exited with code 42.",
+      message: "GPT's Codex CLI exited unexpectedly (code 42).",
     });
     await expect(prompt).rejects.not.toThrow(/private detail/);
   });
@@ -151,7 +170,7 @@ describe("CodexDriver (against a fake codex CLI)", () => {
     await expect(d.prompt("PROVIDER_AUTH_ERROR", () => {}, new AbortController().signal)).rejects.toMatchObject({
       name: "AdapterTurnError",
       code: "AUTHENTICATION_FAILED",
-      message: "Codex is not authenticated. Run `codex login` and try again.",
+      message: "GPT is not authenticated in Codex. Run `codex login` and try again.",
     });
   });
 

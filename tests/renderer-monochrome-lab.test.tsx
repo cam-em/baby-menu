@@ -52,12 +52,12 @@ function installBabyMenuApi(overrides: Partial<BabyMenuApi> = {}) {
       onVisibility: vi.fn(() => () => undefined),
     },
     settings: {
-      get: vi.fn(async () => ({ openAtLogin: false, agentName: "claude", agents: [] })),
-      setOpenAtLogin: vi.fn(async (openAtLogin: boolean) => ({ openAtLogin, agentName: "claude", agents: [] })),
+      get: vi.fn(async () => ({ openAtLogin: false, agentName: "gemini", agents: [] })),
+      setOpenAtLogin: vi.fn(async (openAtLogin: boolean) => ({ openAtLogin, agentName: "gemini", agents: [] })),
       setAgent: vi.fn(async (agentName: string) => ({ openAtLogin: false, agentName, agents: [] })),
-      addAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "claude", agents: [] })),
-      updateAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "claude", agents: [] })),
-      removeAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "claude", agents: [] })),
+      addAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "gemini", agents: [] })),
+      updateAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "gemini", agents: [] })),
+      removeAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "gemini", agents: [] })),
     },
     app: {
       quit: vi.fn(async () => ({ ok: true })),

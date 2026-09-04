@@ -17,7 +17,7 @@ import {
 export type AgentCatalogControllerOptions = {
   /** Path to the user-owned agents.json (repo root in dev, ~/.baby-menu packaged). */
   agentsJsonPath: string;
-  resolveAdapterPath: (adapter: "claude" | "codex") => string;
+  resolveAdapterPath: (adapter: "antigravity" | "codex") => string;
   adapterLauncher: string[];
   commandExists: (command: string) => boolean;
   /** The currently selected agent name; removal of the active agent is refused. */

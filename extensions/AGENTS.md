@@ -53,8 +53,8 @@ When you need current details about a dependency, CLI, local credential layout, 
 ## Recipes
 
 Common recipes live in `recipes/*.html` inside this extension workspace.
-Bundled quota recipes currently cover Claude Code, Codex, Cursor, GitHub Copilot, and Grok.
-Cursor, GitHub Copilot, and Grok quota recipes avoid `quota-axi` or similar helper CLIs; follow each recipe as the authoritative provider-owned state, API, and credential-refresh contract.
+Bundled quota recipes cover Gemini through Antigravity, GPT through Codex, Claude Code, Cursor, GitHub Copilot, and Grok.
+The Gemini recipe uses only Antigravity's structured `/usage` command and never reads credentials or infers windows. Cursor, GitHub Copilot, and Grok recipes likewise avoid `quota-axi` or similar helper CLIs; follow each recipe as the authoritative provider-owned acquisition contract.
 Read the matching recipe before implementing a widget that's relevant.
 Recipes are self-contained specs for the embedded agent and should be treated as technical reference.
 
@@ -146,7 +146,7 @@ export default function Layout({ widgets, renderWidget }: BabyMenuLayoutProps) {
 Baby Menu uses the Monochrome Lab direction in runtime widgets.
 Design for a macOS tray popover (504px wide by default; a custom `layout.tsx` can widen it - see "Popover Layout"), not a web page, dashboard, or chat transcript.
 The host owns the outer wrapper, dashed dividers, scrolling, and popover chrome, but it no longer draws a title above your widget - the widget owns its entire area.
-So `render()` must include its own affordance to say what it is showing whenever that is not obvious from the content: a terse tracked-caps key such as `BATTERY`, `CPU TEMP`, or `CLAUDE · WEEKLY`, a labeled value, or an icon.
+So `render()` must include its own affordance to say what it is showing whenever that is not obvious from the content: a terse tracked-caps key such as `BATTERY`, `CPU TEMP`, or `GEMINI · QUOTA`, a labeled value, or an icon.
 This is not a mandate to draw a title bar - a self-evident widget (a single big labeled number, a clearly captioned chart) needs no separate heading; just make sure the user can tell what they are looking at.
 `widget.title` is still required, but it is now metadata (the id-stable label the host uses for ordering and accessibility and that a `layout.tsx` reads to place widgets), not something the host renders - keep it terse and tracked-caps, and render your own heading from it if you want one visible.
 

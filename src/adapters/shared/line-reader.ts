@@ -1,7 +1,7 @@
 /**
  * Splits a stream of arbitrary chunks into complete newline-delimited lines.
  *
- * Both the Claude (`claude -p` stream-json) and Codex (`codex exec --json`)
+ * Both Antigravity (`agy` stream-json) and Codex (`codex exec --json`)
  * CLIs speak newline-delimited JSON on stdout, but a single `data` event can
  * carry a partial line or several lines at once. This buffers across chunks and
  * emits one trimmed, non-empty line at a time.

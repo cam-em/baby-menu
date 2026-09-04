@@ -25,21 +25,23 @@ export class AdapterTurnError extends Error {
   }
 }
 
-type AdapterName = "Claude" | "Codex";
+type AdapterName = "Gemini" | "GPT";
 
 export function providerTurnError(agent: AdapterName, detail: unknown): AdapterTurnError {
   const text = typeof detail === "string" ? detail : "";
-  if (/\b401\b|unauthorized|authentication|not logged in|missing bearer/i.test(text)) {
+  if (/\b401\b|unauthorized|authentication|not logged in|not authenticated|sign.?in|missing bearer|credential/i.test(text)) {
     const message =
-      agent === "Codex"
-        ? "Codex is not authenticated. Run `codex login` and try again."
-        : "Claude is not authenticated. Run `claude` and complete sign-in, then try again.";
+      agent === "GPT"
+        ? "GPT is not authenticated in Codex. Run `codex login` and try again."
+        : "Gemini is not authenticated in Antigravity. Open Antigravity and sign in, then try again.";
     return new AdapterTurnError("AUTHENTICATION_FAILED", message);
   }
   if (/\b429\b|rate.?limit|quota/i.test(text)) {
-    return new AdapterTurnError("RATE_LIMITED", `${agent} is rate limited. Wait for access to recover, then try again.`);
+    const provider = agent === "GPT" ? "GPT via Codex" : "Gemini via Antigravity";
+    return new AdapterTurnError("RATE_LIMITED", `${provider} is rate limited. Wait for access to recover, then try again.`);
   }
-  return new AdapterTurnError("PROVIDER_FAILED", `${agent} provider failed the request.`);
+  const provider = agent === "GPT" ? "GPT via Codex" : "Gemini via Antigravity";
+  return new AdapterTurnError("PROVIDER_FAILED", `${provider} failed the request.`);
 }
 
 export function safeAdapterTurnError(error: unknown): AdapterTurnError {
@@ -61,7 +63,7 @@ export type MapResult = {
 };
 
 /**
- * Backend-agnostic session driver. Each adapter (claude, codex) implements this
+ * Backend-agnostic session driver. Each adapter (Antigravity, Codex) implements this
  * over its CLI; the generic ACP agent drives it.
  */
 export interface SessionDriver {

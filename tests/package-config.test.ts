@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import packageJson from "../package.json";
 import { describe, expect, it } from "vitest";
 
@@ -28,5 +29,12 @@ describe("package configuration", () => {
 
   it("does not expose a direct start script that bypasses the packaged app path", () => {
     expect(packageJson.scripts).not.toHaveProperty("start");
+  });
+
+  it("bundles and unpacks both built-in ACP adapters", async () => {
+    const buildScript = await readFile(new URL("../scripts/build-adapters.mjs", import.meta.url), "utf8");
+    const builderConfig = await readFile(new URL("../electron-builder.yml", import.meta.url), "utf8");
+    expect(buildScript).toContain('const adapters = ["antigravity", "codex"]');
+    expect(builderConfig).toContain("out/adapters/**");
   });
 });

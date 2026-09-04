@@ -3,18 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Codex Quota Widget Recipe</title>
+    <title>GPT (Codex) Quota Widget Recipe</title>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
     <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   </head>
   <body class="bg-base-200 text-base-content">
     <main class="mx-auto max-w-4xl space-y-5 p-6 text-base leading-7 sm:p-10 [&_code]:text-sm [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:text-lg [&_h3]:font-semibold [&_li]:mb-1 [&_li]:leading-7 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-6 [&_p]:mb-2 [&_p]:leading-7 [&_pre]:my-3 [&_pre_code]:text-sm [&_section]:space-y-3 [&_table]:text-sm [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-6">
-      <h1 class="text-3xl font-bold tracking-tight">Codex Quota Widget Recipe</h1>
+      <h1 class="text-3xl font-bold tracking-tight">GPT (Codex) Quota Widget Recipe</h1>
 
       <section class="card border border-base-300 bg-base-100 shadow-sm p-6">
         <h2>Capability</h2>
-        <p>Source Codex usage limits, credits, and reset windows from local Codex credentials or CLI state for a baby-menu widget.</p>
+        <p>Track GPT usage through Codex, including limits, credits, and reset windows from local Codex credentials or CLI state for a baby-menu widget.</p>
         <p>Use real local data only. When no usable local source is available, return an unavailable or sign-in-required result - do not fabricate or fall back to mock data.</p>
         <p><strong>Scope:</strong> this recipe covers only how to obtain and normalize the data. How the widget presents it - layout, states, copy, refresh controls - is left to the implementer and is intentionally not specified here.</p>
         <p>This recipe is self-contained. Do not require external source code, websites, or implementation guides to complete it.</p>
@@ -50,7 +50,7 @@
           <li><code>$CODEX_HOME/auth.json</code> if <code>CODEX_HOME</code> is set.</li>
           <li><code>~/.codex/auth.json</code> otherwise.</li>
         </ul>
-        <p>Unlike Claude, Codex stores credentials in a plain file, not the macOS Keychain, so a file read is sufficient. Do not read the Keychain for Codex.</p>
+        <p>Codex stores credentials in a plain file rather than the macOS Keychain, so a file read is sufficient. Do not read the Keychain for Codex.</p>
         <p>Parse <code>auth.json</code> with this precedence:</p>
         <ol>
           <li>If a non-empty top-level <code>OPENAI_API_KEY</code> string is present, use it directly as the bearer token (API-key auth).</li>

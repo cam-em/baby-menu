@@ -6,7 +6,7 @@
    doubles as a seamless loop point. Then: zoom in on the menu bar,
    the tray icon appears + is clicked, zoom out, the popover opens on
    the real hello-world widget, the user asks for a cpu/memory widget
-   (which then ticks live) and a claude code widget, drops the sonnet
+   (which then ticks live) and a Gemini quota widget, drops the flash
    line, and we wipe back to the outro.
    ================================================================= */
 
@@ -42,8 +42,8 @@ function makePrompt(text) {
 
 // Typed prompts are the requests shown after the simplified hello-world screen.
 const P1 = makePrompt('add a widget showing current cpu and memory usage %')
-const P2 = makePrompt('add a widget tracking my weekly claude code quota')
-const P3 = makePrompt('drop the sonnet quota line')
+const P2 = makePrompt('add a widget tracking my Gemini quota from Antigravity')
+const P3 = makePrompt('drop the flash quota line')
 
 function makeStack(parent, items, align) {
   parent.textContent = ''
@@ -64,8 +64,8 @@ function makeStack(parent, items, align) {
 // RunStrip task carries the `› ` prefix like the live RunStrip.
 const taskStack = makeStack($('run-task'), [
   '› add a widget showing current cpu and memory usage %',
-  '› add a widget tracking my weekly claude code quota',
-  '› drop the sonnet quota line'
+  '› add a widget tracking my Gemini quota from Antigravity',
+  '› drop the flash quota line'
 ])
 $('run-task').style.position = 'relative'
 $('run-task').style.display = 'block'
@@ -73,7 +73,7 @@ $('run-task').style.height = '15px'
 
 // Subtitle is plain assistant copy (defaults to "Working...").
 const RUN1_STEPS = ['Working...', 'Building the cpu and memory widget']
-const RUN2_STEPS = ['Working...', 'Building the claude code widget']
+const RUN2_STEPS = ['Working...', 'Building the Gemini quota widget']
 const RUN3_STEPS = ['Working...', 'Updating the widget']
 $('run-steps').style.position = 'relative'
 $('run-steps').style.display = 'block'
@@ -99,8 +99,8 @@ const timeStack = makeStack(
 
 const msgStack = makeStack($('sb-msg-wrap'), [
   'Added a cpu and memory widget',
-  'Added a claude code widget',
-  'Updated the claude widget'
+  'Added a Gemini quota widget',
+  'Updated the Gemini widget'
 ])
 
 // Deterministic small-variation sequences for the live cpu/mem values.
@@ -161,21 +161,21 @@ const POP_BORDER = 1
 const headH = document.querySelector('.pop-head').offsetHeight
 const helloH = $('hello').offsetHeight
 const cpuH = $('w-cpu').offsetHeight
-const claudeNoSonnetH = $('w-claude').offsetHeight
-const sonnetH = $('sonnet-inner').offsetHeight
+const geminiNoFlashH = $('w-gemini').offsetHeight
+const flashH = $('flash-inner').offsetHeight
 const dockH = $('dock').offsetHeight
 
 const EXP_HELLO = helloH
 const EXP_CPU = cpuH
-const EXP_SONNET = sonnetH
-const EXP_CLAUDE = claudeNoSonnetH + sonnetH
+const EXP_FLASH = flashH
+const EXP_GEMINI = geminiNoFlashH + flashH
 
 const DOCK_MARGIN = 10 // .dock margin-top (extra breathing room above the input)
 const dockTop = {
   start: POP_BORDER + headH + EXP_HELLO + DOCK_MARGIN,
   cpu: POP_BORDER + headH + EXP_CPU + DOCK_MARGIN,
-  claude: POP_BORDER + headH + EXP_CPU + EXP_CLAUDE + DOCK_MARGIN,
-  final: POP_BORDER + headH + EXP_CPU + claudeNoSonnetH + DOCK_MARGIN
+  gemini: POP_BORDER + headH + EXP_CPU + EXP_GEMINI + DOCK_MARGIN,
+  final: POP_BORDER + headH + EXP_CPU + geminiNoFlashH + DOCK_MARGIN
 }
 
 // Popover wrapper: top 70, centered, scale 1.7 (504 -> ~857 displayed).
@@ -369,7 +369,7 @@ tl.set(P1.caret, { opacity: 0 }, 17.25)
 tl.set('#cplaceholder', { opacity: 1 }, 17.25)
 tl.to('#composer', { opacity: 1, duration: 0.28, ease: 'power2.out' }, 17.3)
 
-/* SCENE F - zoom in, type prompt 2 (claude code quota), send, zoom out. */
+/* SCENE F - zoom in, type prompt 2 (Gemini quota), send, zoom out. */
 typeZoomIn('cpu', 18.0, 0.6)
 moveCursor(zmapX(FIELD_NX), TYPE_FY, 17.9, 0.7)
 tl.to('#cplaceholder', { opacity: 0, duration: 0.15 }, 18.5)
@@ -394,12 +394,12 @@ show(timeStack[4], 23.6)
 hide(timeStack[4], 24.7)
 show(timeStack[5], 24.8)
 
-/* SCENE H - claude widget reveals (with sonnet line); SB2; Keep. */
-tl.set('#c-sonnet', { height: EXP_SONNET, opacity: 1 }, 25.55)
+/* SCENE H - Gemini widget reveals (with flash line); SB2; Keep. */
+tl.set('#c-flash', { height: EXP_FLASH, opacity: 1 }, 25.55)
 tl.fromTo(
-  '#c-claude',
+  '#c-gemini',
   { height: 0, opacity: 0 },
-  { height: EXP_CLAUDE, opacity: 1, duration: 0.6, ease: 'power3.out', immediateRender: false },
+  { height: EXP_GEMINI, opacity: 1, duration: 0.6, ease: 'power3.out', immediateRender: false },
   25.6
 )
 hide(taskStack[1], 25.55)
@@ -410,8 +410,8 @@ hide(msgStack[0], 25.55)
 show(msgStack[1], 25.65)
 tl.fromTo('#sessionbar', { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power2.out', immediateRender: false }, 25.65)
 tl.to('#cursor', { opacity: 1, duration: 0.3, ease: 'power2.out' }, 26.4)
-moveCursor(sx(KEEP_NX), dockCY('claude'), 26.6, 0.8)
-click(sx(KEEP_NX), dockCY('claude'), 27.45)
+moveCursor(sx(KEEP_NX), dockCY('gemini'), 26.6, 0.8)
+click(sx(KEEP_NX), dockCY('gemini'), 27.45)
 tl.to('#sb-keep', { scale: 1.06, duration: 0.12, yoyo: true, repeat: 1, transformOrigin: 'center center' }, 27.45)
 tl.to('#sessionbar', { opacity: 0, duration: 0.28, ease: 'power2.in' }, 27.6)
 tl.set(P2.wrap, { opacity: 0 }, 27.65)
@@ -420,7 +420,7 @@ tl.set('#cplaceholder', { opacity: 1 }, 27.65)
 tl.to('#composer', { opacity: 1, duration: 0.28, ease: 'power2.out' }, 27.7)
 
 /* SCENE I - zoom in, feedback prompt, send, zoom out. */
-typeZoomIn('claude', 28.4, 0.6)
+typeZoomIn('gemini', 28.4, 0.6)
 moveCursor(zmapX(FIELD_NX), TYPE_FY, 28.3, 0.7)
 tl.to('#cplaceholder', { opacity: 0, duration: 0.15 }, 28.95)
 typePrompt(P3, 0, 29.05, 0.06)
@@ -442,9 +442,9 @@ show(timeStack[6], 32.0)
 hide(timeStack[6], 33.2)
 show(timeStack[7], 33.3)
 
-/* SCENE K - the sonnet line is removed; widget settles to final. */
-tl.to('#c-sonnet', { height: 0, opacity: 0, duration: 0.45, ease: 'power2.inOut' }, 33.8)
-tl.to('#c-claude', { height: claudeNoSonnetH, duration: 0.45, ease: 'power2.inOut' }, 33.8)
+/* SCENE K - the flash line is removed; widget settles to final. */
+tl.to('#c-flash', { height: 0, opacity: 0, duration: 0.45, ease: 'power2.inOut' }, 33.8)
+tl.to('#c-gemini', { height: geminiNoFlashH, duration: 0.45, ease: 'power2.inOut' }, 33.8)
 hide(taskStack[2], 33.8)
 hide(stepStack[5], 33.8)
 hide(timeStack[7], 33.8)

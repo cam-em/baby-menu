@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -87,8 +87,20 @@ describe("preferences service", () => {
     tempDirs.push(userDataDir);
     const service = createPreferencesService({ userDataDir, app: { setLoginItemSettings: vi.fn() }, defaultOpenAtLogin: false });
 
-    await expect(service.setAgent("codex")).resolves.toEqual({ openAtLogin: false, agentName: "codex" });
-    await expect(service.get()).resolves.toEqual({ openAtLogin: false, agentName: "codex" });
-    await expect(readFile(join(userDataDir, "preferences.json"), "utf8")).resolves.toContain('"agentName": "codex"');
+    await expect(service.setAgent("gpt")).resolves.toEqual({ openAtLogin: false, agentName: "gpt" });
+    await expect(service.get()).resolves.toEqual({ openAtLogin: false, agentName: "gpt" });
+    await expect(readFile(join(userDataDir, "preferences.json"), "utf8")).resolves.toContain('"agentName": "gpt"');
+  });
+
+  it.each([
+    ["claude", "gemini"],
+    ["codex", "gpt"],
+  ])("migrates the retired built-in %s preference to %s", async (legacy, replacement) => {
+    const userDataDir = await mkdtemp(join(tmpdir(), "baby-menu-prefs-"));
+    tempDirs.push(userDataDir);
+    await writeFile(join(userDataDir, "preferences.json"), JSON.stringify({ openAtLogin: false, agentName: legacy }));
+    const service = createPreferencesService({ userDataDir, app: { setLoginItemSettings: vi.fn() }, defaultOpenAtLogin: false });
+
+    await expect(service.get()).resolves.toEqual({ openAtLogin: false, agentName: replacement });
   });
 });

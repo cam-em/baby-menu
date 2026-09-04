@@ -42,7 +42,7 @@ describe("AgentTurnLogRecorder", () => {
 
     const recorder = await AgentTurnLogRecorder.start({
       rootDir,
-      agentName: "claude",
+      agentName: "gemini",
       requestId: "request-123",
       prompt: "Build\nwidget",
     });
@@ -55,7 +55,7 @@ describe("AgentTurnLogRecorder", () => {
 
     expect(recorder.filePath).toContain(join(".cache", "baby-menu", "agent-turns"));
     expect(log).toMatchObject({
-      agentName: "claude",
+      agentName: "gemini",
       requestId: "request-123",
       promptPreview: "Build widget",
       status: "completed",
@@ -75,7 +75,7 @@ describe("AgentTurnLogRecorder", () => {
 
     const recorder = await AgentTurnLogRecorder.start({
       rootDir,
-      agentName: "codex",
+      agentName: "gpt",
       requestId: "request-failed",
       prompt: "do the thing",
     });
@@ -104,7 +104,7 @@ describe("AgentTurnLogRecorder", () => {
     tempDirs.push(repo);
     const recorder = await AgentTurnLogRecorder.start({
       rootDir: repo,
-      agentName: "claude",
+      agentName: "gemini",
       requestId: "request-timeout",
       prompt: "Take your time",
     });

@@ -19,14 +19,14 @@ describe("hello-world widget examples", () => {
   it("renders each example as a clickable button", () => {
     render(<>{helloWorldWidget.render()}</>);
     const button = screen.getByRole("button", {
-      name: /add a widget tracking my weekly claude code quota/i,
+      name: /add a widget tracking my Gemini quota from Antigravity/i,
     });
     expect(button.tagName).toBe("BUTTON");
   });
 
   it("copies the example prompt to the clipboard when clicked", async () => {
     render(<>{helloWorldWidget.render()}</>);
-    const prompt = "add a widget tracking my weekly claude code quota";
+    const prompt = "add a widget tracking my Gemini quota from Antigravity";
     fireEvent.click(screen.getByRole("button", { name: new RegExp(prompt, "i") }));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(prompt));
@@ -34,7 +34,7 @@ describe("hello-world widget examples", () => {
 
   it("shows transient copied feedback after a click", async () => {
     render(<>{helloWorldWidget.render()}</>);
-    const prompt = "add a widget showing current cpu and memory usage %";
+    const prompt = "add a widget tracking my GPT quota from Codex";
     fireEvent.click(screen.getByRole("button", { name: new RegExp(prompt, "i") }));
 
     await waitFor(() => expect(screen.getByText(/copied/i)).toBeTruthy());

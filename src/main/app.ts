@@ -185,8 +185,8 @@ export async function startBabyMenuApp(): Promise<void> {
   });
   const persistedPreferences = await preferences.apply();
 
-  // Built-in claude/codex agents are driven by the bundled clean-room ACP
-  // adapters. Run them with the bundled Electron as Node (ELECTRON_RUN_AS_NODE)
+  // Built-in Gemini/GPT agents are driven through Antigravity/Codex by bundled
+  // clean-room ACP adapters. Run them with Electron as Node (ELECTRON_RUN_AS_NODE)
   // so there is no dependency on a separately-installed `node` - the same class
   // of PATH fragility that made the agent look "unavailable" before.
   const adapterLauncher = ["env", "ELECTRON_RUN_AS_NODE=1", process.execPath];

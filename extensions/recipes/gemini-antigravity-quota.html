@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en" data-theme="wireframe">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gemini via Antigravity Quota Widget Recipe</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  </head>
+  <body class="bg-base-200 text-base-content">
+    <main class="mx-auto max-w-4xl space-y-5 p-6 text-base leading-7 sm:p-10 [&_code]:text-sm [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:text-lg [&_h3]:font-semibold [&_li]:mb-1 [&_li]:leading-7 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-6 [&_p]:mb-2 [&_p]:leading-7 [&_pre]:my-3 [&_pre_code]:text-sm [&_section]:space-y-3 [&_table]:text-sm [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-6">
+      <h1 class="text-3xl font-bold tracking-tight">Gemini via Antigravity Quota Widget Recipe</h1>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Capability</h2>
+        <p>Track Gemini quota from the installed Antigravity CLI for a Baby Menu widget.</p>
+        <p>Use only Antigravity's provider-owned, read-only <code>/usage</code> command. Do not read Antigravity credentials, call an inferred private endpoint, derive windows from token counts, or fabricate a fallback.</p>
+        <p><strong>Scope:</strong> this recipe defines acquisition, normalization, stale behavior, and security. The generated widget chooses its compact Baby Menu presentation.</p>
+        <p>This recipe is self-contained. Do not require external source code, websites, or implementation guides to complete it.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Recommended Data Source Order</h2>
+        <table class="table table-zebra">
+          <thead><tr><th>Priority</th><th>Source</th><th>Use when</th><th>Expected data</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>Antigravity CLI <code>/usage</code></td>
+              <td><code>agy</code> is installed and Antigravity owns a signed-in session.</td>
+              <td>Provider-defined quota groups and buckets, remaining fractions, window labels, and reset times.</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>Cached last-good normalized snapshot</td>
+              <td>The provider command is temporarily unavailable and a previous successful snapshot exists.</td>
+              <td>The same normalized data marked stale, never invented data.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>There is no credential-file, browser-storage, direct-API, token-count, or alternate-CLI fallback. Do not install or invoke <code>quota-axi</code>.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Verified Antigravity CLI Contract</h2>
+        <p>The installed CLI exposes the provider-owned usage command in non-interactive structured output. The minimal verified form is <code>agy --output-format stream-json --print='/usage'</code>.</p>
+        <p>The server action must suppress account decoration and provider logs while retaining Antigravity's own authenticated session:</p>
+        <pre class="mockup-code overflow-auto p-4"><code>AGY_CLI_HIDE_ACCOUNT_INFO=1 agy \
+  --output-format stream-json \
+  --log-file /dev/null \
+  --print='/usage'</code></pre>
+        <ul>
+          <li>Run with the extension workspace as <code>cwd</code>. Do not pass <code>--new-project</code>, <code>--add-dir</code>, a prompt for a model turn, or any permission-bypass flag; <code>/usage</code> is a read-only local command.</li>
+          <li>Use a hard 15-second timeout, cap stdout and stderr independently at 1 MiB, close stdin immediately, and terminate the child on timeout or overflow.</li>
+          <li>Never return or log raw stdout or stderr. Diagnostics may include only a safe failure kind, exit status, and byte counts.</li>
+        </ul>
+        <p>A successful stream contains an event with <code>event: "command_result"</code>, followed by a duplicate summary in the terminal <code>result</code> event. From the first event with that discriminator, parse <code>command.data.groups</code> and ignore the duplicate terminal copy.</p>
+        <pre class="mockup-code overflow-auto p-4"><code>type AntigravityUsageCommand = {
+  event: "command_result";
+  command: {
+    name: "usage";
+    data: {
+      description?: string;
+      groups: Array&lt;{
+        name: string;
+        description?: string;
+        buckets: Array&lt;{
+          id: string;
+          name: string;
+          description?: string;
+          window: string;
+          remaining_fraction: number;
+          reset_time: string;
+        }&gt;;
+      }&gt;;
+    };
+  };
+};</code></pre>
+        <p>This shape was verified from the real installed <code>agy</code> command with output redacted during inspection. Treat live structured output as canonical and reject incompatible shapes rather than guessing.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Normalization Contract</h2>
+        <p>Always preserve the provider-reported group, bucket, and window labels. Do not infer, rename, or synthesize quota windows. In particular, do not convert a window label into a five-hour, daily, weekly, or monthly claim unless Antigravity reports that exact label.</p>
+        <ul>
+          <li>Require non-empty group names and bucket <code>id</code>, <code>name</code>, and <code>window</code> strings.</li>
+          <li>Require <code>remaining_fraction</code> to be finite and in the inclusive range <code>0..1</code>. Convert it to <code>percentRemaining = remaining_fraction * 100</code>. Do not reinterpret it as percent used.</li>
+          <li>Accept <code>reset_time</code> only when it parses as a valid timestamp; otherwise omit <code>resetAt</code> while keeping an otherwise valid bucket.</li>
+          <li>Ignore description fields in the renderer-facing result because provider prose can change and is not needed to track quota.</li>
+          <li>If no valid buckets remain, return a parser-incompatible result rather than an empty successful quota.</li>
+        </ul>
+        <pre class="mockup-code overflow-auto p-4"><code>type GeminiQuotaSnapshot = {
+  source: "antigravity-cli";
+  groups: Array&lt;{
+    name: string;
+    buckets: Array&lt;{
+      id: string;
+      name: string;
+      window: string;
+      percentRemaining: number;
+      resetAt?: string;
+    }&gt;;
+  }&gt;;
+  refreshedAt: string;
+  stale: boolean;
+};
+
+type GeminiQuotaFailure = {
+  kind: "cli_not_found" | "sign_in_required" | "timeout" | "provider_unavailable" | "parse_incompatible";
+  message: string;
+};
+
+type QuotaResult&lt;T&gt; =
+  | { ok: true; data: T; warning?: GeminiQuotaFailure }
+  | { ok: false; checkedAt: string; failure: GeminiQuotaFailure; sourceTried: ["antigravity-cli"] };</code></pre>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Implementation Contract</h2>
+        <p>Put process spawning, parsing, timeout handling, and caching in <code>gemini-antigravity-quota/server.ts</code>. Expose <code>actions.getQuota</code>, and call it only through <code>window.babyMenu.capabilities.invoke("gemini-antigravity-quota", "getQuota", input)</code>. Do not add preload methods or provider-specific IPC.</p>
+        <p>Persist only the normalized last-good snapshot in an extension-prefixed table through <code>context.db</code>. Never persist command output. On a transient launch, timeout, service, or parse failure, return the last-good snapshot with <code>stale: true</code> and a structured warning; without a cache, return the explicit failure.</p>
+        <p>Use <code>refreshView</code> for refresh on popover open and <code>viewRefreshIntervalMs: 300000</code> while visible. Do not add a background task unless the user explicitly asks for closed-popover monitoring.</p>
+        <p>Before writing parsing code, run the exact real command above with stdout redirected to a temporary file, inspect only redacted structure and field types, and delete the file. Before reporting done, invoke the finished server action against that same real command and compare normalized bucket counts and ranges without printing names, account details, raw output, or live quota values.</p>
+        <p>Server action response shape is the <code>QuotaResult&lt;GeminiQuotaSnapshot&gt;</code> union above.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Error Handling</h2>
+        <ul>
+          <li><code>ENOENT</code> means <code>cli_not_found</code>: show that the Antigravity CLI is unavailable and ask the user to install <code>agy</code>.</li>
+          <li>A structured <code>result.status: "ERROR"</code> whose safe classification indicates authentication means <code>sign_in_required</code>: ask the user to open Antigravity and sign in. Never forward <code>result.error</code>.</li>
+          <li>Timeout, non-authentication nonzero exit, or interrupted output means <code>provider_unavailable</code> (or <code>timeout</code>) and should prefer stale last-good data.</li>
+          <li>Malformed JSON, a missing usage command result, invalid groups, or no valid buckets means <code>parse_incompatible</code> and should prefer stale last-good data.</li>
+          <li>Never turn per-turn token usage into subscription quota and never infer reset windows.</li>
+        </ul>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Security Constraints</h2>
+        <ul>
+          <li>Filesystem and shell access belongs only in the extension server action.</li>
+          <li>Authentication stays provider-owned. Do not inspect, copy, parse, refresh, or send Antigravity credentials anywhere.</li>
+          <li>The renderer receives only normalized names, window labels, percentages, reset times, freshness, and safe failure kinds.</li>
+          <li>No account identifiers, raw command output, credential material, local paths, or provider diagnostics may enter logs, cache rows, fixtures, screenshots, or committed files.</li>
+        </ul>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Interactive Demo</h2>
+        <div class="alert alert-info" role="status">
+          <span><strong>Gemini quota unavailable</strong><br />Open Antigravity and sign in, then refresh.</span>
+        </div>
+        <p class="text-sm">This intentionally demonstrates the no-data state. A real widget must render only live or visibly stale values returned by Antigravity.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Acceptance Criteria</h2>
+        <ul>
+          <li>The server action uses only Antigravity's structured <code>/usage</code> command and never reads credentials or calls an inferred endpoint.</li>
+          <li>Every displayed group, bucket, window, remaining percentage, and reset comes from validated provider fields without invented windows.</li>
+          <li>Missing CLI, sign-in, timeout, provider, and parser failures are distinct and never expose raw output.</li>
+          <li>Last-good normalized data remains visible and marked stale during transient failures.</li>
+          <li>Refresh runs no faster than every five minutes and pauses with the hidden popover.</li>
+          <li>The implementation has no separate quota helper dependency.</li>
+          <li>Live verification compares only redacted structure and normalized ranges, leaving no sensitive artifact behind.</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

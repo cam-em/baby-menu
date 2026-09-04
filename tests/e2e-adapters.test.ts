@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * End-to-end proof that the bundled clean-room adapters drive the REAL claude /
+ * End-to-end proof that the bundled clean-room adapters drive the real agy and
  * codex CLIs over ACP, exactly as acpx does (raw JSON-RPC 2.0 over NDJSON on the
  * child's stdio). Gated: only runs when the wrapped CLI exists AND
  * RUN_REAL_AGENT_E2E=1 is set, because it spawns the real agent (network +
@@ -91,10 +91,10 @@ async function runOnePrompt(
 }
 
 describe.skipIf(!RUN)("adapter e2e against the real CLIs", () => {
-  it.skipIf(!cliExists("claude"))(
-    "claude adapter streams a real answer and ends the turn",
+  it.skipIf(!cliExists("agy"))(
+    "Gemini adapter streams a real answer through Antigravity and ends the turn",
     async () => {
-      const entry = join(ADAPTERS, "claude", "index.mjs");
+      const entry = join(ADAPTERS, "antigravity", "index.mjs");
       expect(existsSync(entry), "build adapters first").toBe(true);
       const { text, stopReason } = await runOnePrompt(entry, "Reply with exactly the word: pong");
       expect(text.toLowerCase()).toContain("pong");
@@ -104,7 +104,7 @@ describe.skipIf(!RUN)("adapter e2e against the real CLIs", () => {
   );
 
   it.skipIf(!cliExists("codex"))(
-    "codex adapter streams a real answer and ends the turn",
+    "GPT adapter streams a real answer through Codex and ends the turn",
     async () => {
       const entry = join(ADAPTERS, "codex", "index.mjs");
       expect(existsSync(entry), "build adapters first").toBe(true);

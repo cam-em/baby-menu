@@ -11,14 +11,14 @@
 
 <p align="center">
   <img
-    alt="Ask baby-menu to build a cpu and a claude usage widget and watch them appear in your menu bar"
+    alt="Ask baby-menu to build usage widgets and watch them appear in your menu bar"
     src="marketing-video/baby-menu-marketing-square.gif"
     width="960"
   />
 </p>
 
 Every menu-bar app ships a fixed set of widgets.
-Want your CPU usage next to your Claude usage next to your next calendar event?
+Want your Gemini usage next to your GPT usage next to your next calendar event?
 Good luck waiting for someone to build exactly that.
 
 baby-menu flips it.
@@ -31,7 +31,7 @@ You ask for a feature in plain English, the agent writes an extension and it hot
 
 ## Quick Start
 
-Requires macOS 13 Ventura or newer, Homebrew, and a supported, already-authenticated agent CLI such as `claude` or `codex` on `PATH`.
+Requires macOS 13 Ventura or newer, Homebrew, and an already-authenticated built-in agent CLI: Antigravity (`agy`) for Gemini or Codex (`codex`) for GPT.
 
 ```sh
 brew install --cask kunchenguid/tap/baby-menu
@@ -102,9 +102,9 @@ For agent selection, custom ACP agents, telemetry, and environment flags, see [d
 - **Three processes, one bridge** - the renderer never touches git, the agent, or the filesystem; everything goes through `window.babyMenu`.
 - **Recipes are specs, not prompts** - HTML files under `extensions/recipes/` describe a widget's capability and data sources; the agent reads the matching recipe before implementing.
   For live or system data, recipe guidance requires the agent to inspect the real source before parsing it and verify the finished widget against that same data before reporting done.
-  The bundled quota recipes cover Claude Code, Codex, Cursor, GitHub Copilot, and Grok.
-  Cursor, GitHub Copilot, and Grok quota recipes avoid separate quota helpers such as `quota-axi`; each recipe is authoritative for its provider-owned state, API, and credential-refresh contract.
-- **Bundled ACP adapters** - built-in Claude Code and Codex run through clean-room adapters isolated from user-level agent configuration.
+  The current model-family trackers are Gemini through Antigravity and GPT through Codex; additional bundled recipes cover Claude Code, Cursor, GitHub Copilot, and Grok.
+  The Gemini, Cursor, GitHub Copilot, and Grok quota recipes avoid separate quota helpers such as `quota-axi`; each recipe is authoritative for its provider-owned state, API, and credential-refresh contract.
+- **Bundled ACP adapters** - built-in Gemini and GPT run through clean-room Antigravity and Codex adapters scoped to the active extension workspace.
 - **Diff-derived Keep / Undo** - the change bar reflects the actual git or snapshot diff, not agent wording, and clears itself when nothing changed on disk.
 - **Extensions own their capabilities** - widgets, layouts, settings sections, server actions, background tasks, and a shared SQLite store, all behind the stable bridge.
 

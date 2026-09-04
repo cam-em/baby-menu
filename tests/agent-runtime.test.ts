@@ -59,45 +59,45 @@ describe("agent runtime defaults", () => {
     expect(
       resolveDefaultAgentName({
         env: { BABY_MENU_AGENT: "mock-target" },
-        commandExists: available(["codex", "claude"]),
+        commandExists: available(["agy", "codex"]),
       }),
     ).toBe("mock-target");
   });
 
-  it("prefers Claude before Codex for the default ACP path", () => {
+  it("prefers Gemini through Antigravity before GPT through Codex", () => {
     expect(
       resolveDefaultAgentName({
         env: {},
-        commandExists: available(["codex", "claude", "npx"]),
+        commandExists: available(["agy", "codex", "npx"]),
       }),
-    ).toBe("claude");
+    ).toBe("gemini");
   });
 
-  it("uses Codex when Claude is unavailable", () => {
+  it("uses GPT through Codex when Antigravity is unavailable", () => {
     expect(
       resolveDefaultAgentName({
         env: {},
         commandExists: available(["codex", "npx"]),
       }),
-    ).toBe("codex");
+    ).toBe("gpt");
   });
 
-  it("uses Codex when it is the only preferred local agent available", () => {
+  it("uses Gemini when Antigravity is the only preferred local agent available", () => {
     expect(
       resolveDefaultAgentName({
         env: {},
-        commandExists: available(["codex"]),
+        commandExists: available(["agy"]),
       }),
-    ).toBe("codex");
+    ).toBe("gemini");
   });
 
-  it("falls back to Claude instead of OpenCode when no preferred CLI is detected", () => {
+  it("falls back to Gemini when no preferred CLI is detected", () => {
     expect(
       resolveDefaultAgentName({
         env: {},
         commandExists: available([]),
       }),
-    ).toBe("claude");
+    ).toBe("gemini");
   });
 
   it("uses a bounded default request timeout", () => {
@@ -353,7 +353,7 @@ describe("agent runtime defaults", () => {
 
 describe("agent runtime switching", () => {
   function buildRuntime() {
-    const runtime = new BabyMenuAgentRuntime("/repo", { agentName: "claude" });
+    const runtime = new BabyMenuAgentRuntime("/repo", { agentName: "gemini" });
     const internals = runtime as unknown as {
       runtime: { close: ReturnType<typeof vi.fn> } | null;
       handle: object | null;
@@ -364,7 +364,7 @@ describe("agent runtime switching", () => {
 
   it("reports the configured agent as the current agent", () => {
     const { runtime } = buildRuntime();
-    expect(runtime.currentAgent).toBe("claude");
+    expect(runtime.currentAgent).toBe("gemini");
   });
 
   it("ignores a switch to the same or empty agent", async () => {
@@ -373,11 +373,11 @@ describe("agent runtime switching", () => {
     internals.runtime = { close };
     internals.handle = {};
 
-    await runtime.setAgent("claude");
+    await runtime.setAgent("gemini");
     await runtime.setAgent("   ");
 
     expect(close).not.toHaveBeenCalled();
-    expect(runtime.currentAgent).toBe("claude");
+    expect(runtime.currentAgent).toBe("gemini");
   });
 
   it("switches agent and resets the live session with discarded state", async () => {
@@ -387,14 +387,14 @@ describe("agent runtime switching", () => {
     internals.handle = { sessionKey: "baby-menu-agent-chat" };
     internals.activeSession = { startedClean: true };
 
-    await runtime.setAgent("codex");
+    await runtime.setAgent("gpt");
 
     expect(close).toHaveBeenCalledWith({
       handle: { sessionKey: "baby-menu-agent-chat" },
       reason: "agent-switch",
       discardPersistentState: true,
     });
-    expect(runtime.currentAgent).toBe("codex");
+    expect(runtime.currentAgent).toBe("gpt");
     expect(internals.runtime).toBeNull();
     expect(internals.handle).toBeNull();
     expect(internals.activeSession).toBeNull();
@@ -402,17 +402,17 @@ describe("agent runtime switching", () => {
 
   it("switches agent even when no runtime is active yet", async () => {
     const { runtime } = buildRuntime();
-    await runtime.setAgent("codex");
-    expect(runtime.currentAgent).toBe("codex");
+    await runtime.setAgent("gpt");
+    expect(runtime.currentAgent).toBe("gpt");
   });
 
   it("setRegistryOverrides replaces the overrides used to build the next runtime", async () => {
-    const runtime = new BabyMenuAgentRuntime("/repo", { agentName: "claude", registryOverrides: { claude: "old" } });
+    const runtime = new BabyMenuAgentRuntime("/repo", { agentName: "gemini", registryOverrides: { gemini: "old" } });
     const internals = runtime as unknown as { registryOverrides: Record<string, string> | undefined };
-    expect(internals.registryOverrides).toEqual({ claude: "old" });
+    expect(internals.registryOverrides).toEqual({ gemini: "old" });
 
-    await runtime.setRegistryOverrides({ claude: "old", gemini: "gemini acp" });
-    expect(internals.registryOverrides).toEqual({ claude: "old", gemini: "gemini acp" });
+    await runtime.setRegistryOverrides({ gemini: "old", rovo: "rovo acp" });
+    expect(internals.registryOverrides).toEqual({ gemini: "old", rovo: "rovo acp" });
 
     // Empty/undefined collapses to undefined so createAgentRegistry gets no overrides.
     await runtime.setRegistryOverrides({});
@@ -425,7 +425,7 @@ describe("agent runtime switching", () => {
     internals.runtime = { close };
     internals.handle = { sessionKey: "baby-menu-agent-chat" };
 
-    await runtime.setRegistryOverrides({ claude: "updated command" });
+    await runtime.setRegistryOverrides({ gemini: "updated command" });
 
     expect(close).toHaveBeenCalledWith({
       handle: { sessionKey: "baby-menu-agent-chat" },
@@ -447,7 +447,7 @@ describe("agent runtime switching", () => {
       save: vi.fn(async () => ({ ok: true })),
     };
 
-    await runtime.setRegistryOverrides({ claude: "updated command" });
+    await runtime.setRegistryOverrides({ gemini: "updated command" });
 
     expect(close).not.toHaveBeenCalled();
 
@@ -465,7 +465,7 @@ describe("agent runtime switching", () => {
 
 describe("agent runtime change-session snapshot", () => {
   function buildRuntime() {
-    const runtime = new BabyMenuAgentRuntime("/repo", { agentName: "claude" });
+    const runtime = new BabyMenuAgentRuntime("/repo", { agentName: "gemini" });
     const internals = runtime as unknown as {
       activeSession: unknown;
       activeTurn: boolean;
@@ -503,7 +503,7 @@ describe("agent runtime change-session snapshot", () => {
 
   it("does not leave a saveable session open after a no-change turn", async () => {
     const rootDir = await mkdtemp(join(tmpdir(), "baby-menu-runtime-"));
-    const runtime = new BabyMenuAgentRuntime(rootDir, { agentName: "claude" });
+    const runtime = new BabyMenuAgentRuntime(rootDir, { agentName: "gemini" });
     const internals = runtime as unknown as {
       activeSession: unknown;
       activeTurn: boolean;
@@ -603,16 +603,16 @@ describe("agent runtime telemetry", () => {
 
   it("reports an agent_switch event when the active agent changes", async () => {
     const telemetry = recordingTelemetry();
-    const runtime = new BabyMenuAgentRuntime("/repo", { agentName: "claude", telemetry: telemetry.client });
+    const runtime = new BabyMenuAgentRuntime("/repo", { agentName: "gemini", telemetry: telemetry.client });
 
-    await runtime.setAgent("codex");
+    await runtime.setAgent("gpt");
 
-    expect(telemetry.events).toContainEqual({ name: "agent_switch", fields: { agent: "codex" } });
+    expect(telemetry.events).toContainEqual({ name: "agent_switch", fields: { agent: "gpt" } });
   });
 
   it("reports custom instead of user-defined agent names", async () => {
     const telemetry = recordingTelemetry();
-    const runtime = new BabyMenuAgentRuntime("/repo", { agentName: "claude", telemetry: telemetry.client });
+    const runtime = new BabyMenuAgentRuntime("/repo", { agentName: "gemini", telemetry: telemetry.client });
 
     await runtime.setAgent("my-private-agent");
 
@@ -621,9 +621,9 @@ describe("agent runtime telemetry", () => {
 
   it("does not report agent_switch for a no-op switch", async () => {
     const telemetry = recordingTelemetry();
-    const runtime = new BabyMenuAgentRuntime("/repo", { agentName: "claude", telemetry: telemetry.client });
+    const runtime = new BabyMenuAgentRuntime("/repo", { agentName: "gemini", telemetry: telemetry.client });
 
-    await runtime.setAgent("claude");
+    await runtime.setAgent("gemini");
 
     expect(telemetry.events).toHaveLength(0);
   });
@@ -680,7 +680,7 @@ describe("agent runtime telemetry", () => {
     const rootDir = await mkdtemp(join(tmpdir(), "baby-menu-startup-log-"));
     const extensionsDir = join(rootDir, "extensions-dev");
     const runtime = new BabyMenuAgentRuntime(rootDir, {
-      agentName: "codex",
+      agentName: "gpt",
       paths: {
         extensionsDir,
         agentStateDir: join(rootDir, ".cache", "acp-sessions"),
@@ -700,23 +700,23 @@ describe("agent runtime telemetry", () => {
     }));
     internals.ensureRuntime = vi.fn(async () => {
       throw new AgentTurnFailedError({
-        message: "Codex authentication failed. Sign in and try again.",
+        message: "GPT is not authenticated in Codex. Run `codex login` and try again.",
         code: "AUTHENTICATION",
         detailCode: "ACP_START_FAILED",
       });
     });
 
-    await expect(runtime.send("add a widget")).rejects.toThrow("Codex authentication failed");
+    await expect(runtime.send("add a widget")).rejects.toThrow("GPT is not authenticated in Codex");
 
     const logDir = join(rootDir, ".cache", "baby-menu", "agent-turns");
     const logFiles = await readdir(logDir);
     expect(logFiles).toHaveLength(1);
     const log = JSON.parse(await readFile(join(logDir, logFiles[0]!), "utf8"));
     expect(log).toMatchObject({
-      agentName: "codex",
+      agentName: "gpt",
       status: "failed",
       error: {
-        message: "Codex authentication failed. Sign in and try again.",
+        message: "GPT is not authenticated in Codex. Run `codex login` and try again.",
         code: "AUTHENTICATION",
         detailCode: "ACP_START_FAILED",
       },
@@ -772,7 +772,7 @@ describe("agent runtime session resume recovery", () => {
 
     const telemetry: Array<{ name: string; fields: Record<string, unknown> }> = [];
     const runtime = new BabyMenuAgentRuntime(rootDir, {
-      agentName: "codex",
+      agentName: "gpt",
       telemetry: {
         track: (name: string, fields: Record<string, unknown> = {}) => telemetry.push({ name, fields }),
         pageview: () => {},
@@ -824,8 +824,8 @@ describe("agent runtime session resume recovery", () => {
     // The stale persisted session record is deleted so the retry starts fresh.
     expect(existsSync(sessionFile)).toBe(false);
     // A recovered turn reports success, not error.
-    expect(telemetry).toContainEqual({ name: "agent_turn", fields: { agent: "codex", status: "success" } });
-    expect(telemetry).not.toContainEqual({ name: "agent_turn", fields: { agent: "codex", status: "error" } });
+    expect(telemetry).toContainEqual({ name: "agent_turn", fields: { agent: "gpt", status: "success" } });
+    expect(telemetry).not.toContainEqual({ name: "agent_turn", fields: { agent: "gpt", status: "error" } });
   });
 
   it("does not discard the session or retry for an unrelated turn failure", async () => {
@@ -839,6 +839,6 @@ describe("agent runtime session resume recovery", () => {
 
     expect(collect).toHaveBeenCalledTimes(1);
     expect(existsSync(sessionFile)).toBe(true);
-    expect(telemetry).toContainEqual({ name: "agent_turn", fields: { agent: "codex", status: "error" } });
+    expect(telemetry).toContainEqual({ name: "agent_turn", fields: { agent: "gpt", status: "error" } });
   });
 });
