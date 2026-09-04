@@ -55,6 +55,16 @@ function fakeTurn({
 }
 
 describe("agent runtime defaults", () => {
+  it("blocks launches and switches with configuration feedback before starting a change session", async () => {
+    const reason = "Repair agent configuration and restart Baby Menu.";
+    const runtime = new BabyMenuAgentRuntime(process.cwd(), { agentName: "gemini", unavailableReason: reason });
+    expect(await runtime.send("edit extensions")).toEqual({ assistantText: reason });
+    await expect(runtime.setAgent("gpt")).rejects.toThrow(reason);
+    await expect(runtime.setAgent("gemini")).rejects.toThrow(reason);
+    expect(runtime.agentSwitchDisabledReason).toBe(reason);
+    expect(runtime.session).toBeNull();
+    expect(runtime.currentTurn()).toBeNull();
+  });
   it("honors BABY_MENU_AGENT before auto-detecting local agents", () => {
     expect(
       resolveDefaultAgentName({

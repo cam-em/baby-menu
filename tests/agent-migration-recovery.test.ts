@@ -21,6 +21,41 @@ afterEach(async () => {
 });
 
 describe("recoverable catalog and selection migration", () => {
+  it.each([false, true])("requires readable preferences before catalog migration (pending=%s)", async (pending) => {
+    for (const invalid of ["{", "null", "[]", '{"agentName":42}', "unreadable"]) {
+      const directory = await mkdtemp(join(tmpdir(), "baby-menu-preferences-unavailable-"));
+      directories.push(directory);
+      const catalogPath = join(directory, "agents.json");
+      const preferencesPath = join(directory, "preferences.json");
+      const journalPath = join(directory, "agent-selection-migration.json");
+      const original = JSON.stringify([{ name: "gemini", launchCommand: "custom-acp" }]);
+      const journal = JSON.stringify({ version: 1, agentName: "custom-gemini" });
+      await writeFile(catalogPath, original);
+      if (pending) await writeFile(journalPath, journal);
+      if (invalid === "unreadable") await mkdir(preferencesPath);
+      else await writeFile(preferencesPath, invalid);
+      const preferences = createPreferencesService({ userDataDir: directory, app: { setLoginItemSettings: vi.fn() } });
+      const controller = createAgentCatalogController({
+        agentsJsonPath: catalogPath, preferences,
+        resolveAdapterPath: (adapter) => `${adapter}.mjs`, adapterLauncher: ["node"],
+        commandExists: () => true, getActiveAgentName: () => "gemini",
+      });
+      await expect(controller.load()).rejects.toThrow("Preferences could not be loaded");
+      expect(controller.unavailableReason).toContain("restart Baby Menu");
+      await expect(controller.addAgent({ name: "extra", command: "extra-acp" })).rejects.toThrow("Agent configuration is unavailable");
+      expect(await readFile(catalogPath, "utf8")).toBe(original);
+      if (pending) expect(await readFile(journalPath, "utf8")).toBe(journal);
+      else await expect(readFile(journalPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      if (invalid === "unreadable") await rm(preferencesPath, { recursive: true });
+      else expect(await readFile(preferencesPath, "utf8")).toBe(invalid);
+      await writeFile(preferencesPath, JSON.stringify({ openAtLogin: false, agentName: "gemini" }));
+      await controller.load();
+      expect(controller.unavailableReason).toBeUndefined();
+      expect((await preferences.get()).agentName).toBe("custom-gemini");
+      await expect(readFile(journalPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    }
+  });
+
   it.each([false, true])("preserves selections and recovery state while the catalog is unavailable (pending=%s)", async (pending) => {
     for (const invalid of ["{", "null", "{}", "[null]", '[{"name":"codex","launchCommand":42}]', "unreadable", "dangling-link"]) {
       const directory = await mkdtemp(join(tmpdir(), "baby-menu-migration-unavailable-"));

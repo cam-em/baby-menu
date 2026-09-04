@@ -1,4 +1,4 @@
-import { readFile, unlink } from "node:fs/promises";
+import { lstat, readFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { normalizeLegacyBuiltInAgentName } from "./agent-catalog";
 import { writeJsonFile } from "./atomic-json-file";
@@ -52,11 +52,31 @@ export function createPreferencesService({
   }
 
   async function readPreferences(): Promise<BabyMenuPreferences> {
+    let content: string;
     try {
-      const parsed = JSON.parse(await readFile(filePath, "utf8")) as Partial<BabyMenuPreferences>;
+      content = await readFile(filePath, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        try {
+          await lstat(filePath);
+        } catch (statError) {
+          if ((statError as NodeJS.ErrnoException).code === "ENOENT") {
+            return normalizePreferences({ openAtLogin: defaultOpenAtLogin });
+          }
+        }
+      }
+      throw new Error("Preferences could not be loaded.");
+    }
+    try {
+      const parsed = JSON.parse(content) as Partial<BabyMenuPreferences> | null;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)
+        || (parsed.openAtLogin !== undefined && typeof parsed.openAtLogin !== "boolean")
+        || (parsed.agentName !== undefined && typeof parsed.agentName !== "string")) {
+        throw new Error("Invalid preferences.");
+      }
       return normalizePreferences({ openAtLogin: parsed.openAtLogin ?? defaultOpenAtLogin, agentName: parsed.agentName });
     } catch {
-      return normalizePreferences({ openAtLogin: defaultOpenAtLogin });
+      throw new Error("Preferences could not be loaded.");
     }
   }
 

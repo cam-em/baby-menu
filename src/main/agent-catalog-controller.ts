@@ -15,6 +15,8 @@ import {
   withAdapterLaunchCommands,
 } from "./agent-catalog";
 
+export const AGENT_CONFIGURATION_UNAVAILABLE = "Agent configuration is unavailable. Check agents.json and preferences.json for valid JSON and read/write permissions, then restart Baby Menu.";
+
 export type AgentCatalogControllerOptions = {
   /** Path to the user-owned agents.json (repo root in dev, ~/.baby-menu packaged). */
   agentsJsonPath: string;
@@ -33,6 +35,7 @@ export type AgentCatalogController = {
   load: () => Promise<AgentCatalogController>;
   readonly catalog: readonly AgentDefinition[];
   readonly overrides: Record<string, string>;
+  readonly unavailableReason: string | undefined;
   options: () => AgentOption[];
   addAgent: (input: BabyMenuCustomAgentInput) => Promise<void>;
   updateAgent: (name: string, input: { label?: string; command: string }) => Promise<void>;
@@ -49,6 +52,11 @@ export function createAgentCatalogController(options: AgentCatalogControllerOpti
   let customs: AgentDefinition[] = [];
   let catalog: AgentDefinition[] = [];
   let overrides: Record<string, string> = {};
+  let unavailableReason: string | undefined = AGENT_CONFIGURATION_UNAVAILABLE;
+
+  function assertAvailable(): void {
+    if (unavailableReason) throw new Error(unavailableReason);
+  }
 
   function rebuild(): void {
     catalog = withAdapterLaunchCommands(
@@ -70,18 +78,29 @@ export function createAgentCatalogController(options: AgentCatalogControllerOpti
     await options.onOverridesChange?.(overrides);
   }
 
+  rebuild();
+
   const controller: AgentCatalogController = {
     async load() {
-      const loaded = parseAgentDefinitions(await loadAgentConfigFile(options.agentsJsonPath));
-      const migration = migrateCollidingCustomAgentNames(loaded);
-      customs = migration.definitions;
-      await options.preferences?.migrateAgentSelection(migration.renamed, loaded.map((agent) => agent.name));
-      if (Object.keys(migration.renamed).length > 0) {
-        await persist();
+      try {
+        const loaded = parseAgentDefinitions(await loadAgentConfigFile(options.agentsJsonPath));
+        const migration = migrateCollidingCustomAgentNames(loaded);
+        customs = migration.definitions;
+        await options.preferences?.migrateAgentSelection(migration.renamed, loaded.map((agent) => agent.name));
+        if (Object.keys(migration.renamed).length > 0) {
+          await persist();
+        }
+        await options.preferences?.completeAgentSelectionMigration();
+        rebuild();
+        unavailableReason = undefined;
+        return controller;
+      } catch (error) {
+        unavailableReason = AGENT_CONFIGURATION_UNAVAILABLE;
+        throw error;
       }
-      await options.preferences?.completeAgentSelectionMigration();
-      rebuild();
-      return controller;
+    },
+    get unavailableReason() {
+      return unavailableReason;
     },
     get catalog() {
       return catalog;
@@ -90,13 +109,17 @@ export function createAgentCatalogController(options: AgentCatalogControllerOpti
       return overrides;
     },
     options() {
-      return toAgentOptions(catalog, options.commandExists);
+      return toAgentOptions(catalog, options.commandExists).map((agent) => unavailableReason
+        ? { ...agent, available: false, installHint: unavailableReason }
+        : agent);
     },
     async addAgent(input) {
+      assertAvailable();
       const validated = validateCustomAgentInput(input, customs.map((agent) => agent.name));
       await commit([...customs, customAgentToDefinition(validated)]);
     },
     async updateAgent(name, input) {
+      assertAvailable();
       if (!customs.some((agent) => agent.name === name)) {
         throw new Error(`No custom agent named "${name}".`);
       }
@@ -106,6 +129,7 @@ export function createAgentCatalogController(options: AgentCatalogControllerOpti
       await commit(customs.map((agent) => (agent.name === name ? customAgentToDefinition(validated) : agent)));
     },
     async removeAgent(name) {
+      assertAvailable();
       if (options.getActiveAgentName() === name) {
         throw new Error("This agent is active. Switch to another agent before removing it.");
       }
