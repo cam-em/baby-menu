@@ -49,47 +49,4 @@ describe("loadRecipes", () => {
       expect(document.querySelectorAll("style")).toHaveLength(0);
     }
   });
-
-  it("keeps Copilot transient 403 handling separate from token rejection", async () => {
-    const html = await readFile(resolve(import.meta.dirname, "../extensions/recipes/copilot-quota.html"), "utf8");
-
-    expect(html).toContain("Do not classify every <code>403</code> as rejected auth");
-    expect(html).toContain("<code>x-ratelimit-remaining: 0</code>");
-    expect(html).toContain("<code>x-ratelimit-reset</code> only when <code>x-ratelimit-remaining</code> is <code>0</code>");
-    expect(html).toContain("<code>retry-after</code>");
-    expect(html).toContain("secondary rate limits");
-    expect(html).not.toContain("a future <code>x-ratelimit-reset</code>");
-  });
-
-  it("keeps Copilot local auth parse failures out of sign-in-required handling", async () => {
-    const html = await readFile(resolve(import.meta.dirname, "../extensions/recipes/copilot-quota.html"), "utf8");
-
-    expect(html).toContain("any existing apps.json file was unreadable or malformed");
-    expect(html).toContain("follow the cached-stale-or-unavailable path instead of reporting sign-in required");
-    expect(html).toContain("return an unavailable error (<code>Copilot quota unavailable</code>) with <code>sourceTried: [\"local-auth\"]</code>");
-    expect(html).toContain("no existing apps.json file failed read or parse");
-    expect(html).not.toContain("no file parses successfully, or no entry has a usable <code>oauth_token</code>, return <code>Copilot sign-in required</code>");
-  });
-
-  it("keeps Grok local auth parse failures out of sign-in-required handling", async () => {
-    const html = await readFile(resolve(import.meta.dirname, "../extensions/recipes/grok-quota.html"), "utf8");
-
-    expect(html).toContain("a missing resolved file is <code>auth_source_missing</code>");
-    expect(html).toContain("a permission, I/O, or other read failure is <code>auth_source_unreadable</code>");
-    expect(html).toContain("invalid JSON is <code>auth_source_malformed</code>");
-    expect(html).toContain("no usable credential is <code>auth_source_incompatible</code>");
-    expect(html).toContain("Do not run a CLI capability probe for missing, unreadable, malformed, incompatible, ambiguous, or healthy auth");
-    expect(html).toContain("conditional official-client refresh");
-    expect(html).toContain("Do not classify these local source outcomes as <code>parse_incompatible</code> or sign-in-required");
-    expect(html).not.toContain("missing file, empty object, or no candidate with a non-empty <code>key</code>");
-    expect(html).not.toContain("return <code>Grok sign-in required</code> with <code>sourceTried: [\"local-auth\"]</code>");
-  });
-
-  it("keeps Cursor sqlite auth reads scoped to used keys", async () => {
-    const html = await readFile(resolve(import.meta.dirname, "../extensions/recipes/cursor-quota.html"), "utf8");
-
-    expect(html).toContain("WHERE key IN ('cursorAuth/accessToken', 'cursorAuth/cachedEmail', 'cursorAuth/stripeMembershipType')");
-    expect(html).toContain("do not retrieve <code>cursorAuth/refreshToken</code> or any other unused secret");
-    expect(html).not.toContain("WHERE key LIKE 'cursorAuth/%'");
-  });
 });

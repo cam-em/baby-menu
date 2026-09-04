@@ -3,34 +3,6 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("extension layout", () => {
-  it("keeps the hello world widget in the repo-level extensions directory", async () => {
-    const dir = resolve(import.meta.dirname, "../extensions/hello-world");
-    const widget = await readFile(resolve(dir, "widget.tsx"), "utf8");
-    // The widget entry exports the descriptor and renders the view from
-    // components.tsx (split so UI edits hot reload while preserving state).
-    const components = await readFile(resolve(dir, "components.tsx"), "utf8");
-
-    expect(widget).toContain("helloWorldWidget");
-    expect(widget).toContain("RefreshableBabyMenuWidget");
-    expect(widget).toContain("HelloWorldView");
-    expect(widget).toContain("./components");
-    // The descriptor module exports only the descriptor - the React components
-    // live in components.tsx so the entry stays Fast-Refresh-neutral.
-    expect(widget).not.toContain("function HelloWorldView");
-
-    // The starter components exemplify the design system via token utilities.
-    expect(components).toContain("export function HelloWorldView");
-    expect(components).toContain("hello world");
-    expect(components).toContain("tell baby menu what you would like it to become");
-    expect(components).toContain("text-3xl");
-    expect(components).toContain("text-signal-live");
-    expect(components).toContain("examples");
-    expect(components).not.toContain("quick asks");
-    expect(components).not.toContain("className=\"src\"");
-    // Migrated off legacy inline token styles.
-    expect(components).not.toContain("var(--fs-");
-  });
-
   it("documents extension authoring separately from core development", async () => {
     const instructions = await readFile(resolve(import.meta.dirname, "../extensions/AGENTS.md"), "utf8");
 

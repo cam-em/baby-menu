@@ -158,7 +158,7 @@ export class CodexDriver implements SessionDriver {
         if (cancelled) settle("cancelled");
         else fail(new AdapterTurnError("CLI_START_FAILED", "Codex CLI could not be started. Install `codex`, then restart Baby Menu."));
       });
-      child.on("exit", (code) => {
+      child.on("close", (code) => {
         logDebug(SCOPE, "codex exec exited", code);
         if (cancelled) {
           settle("cancelled");

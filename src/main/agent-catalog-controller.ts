@@ -1,6 +1,6 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
 import type { BabyMenuCustomAgentInput } from "../shared/contracts";
+import type { PreferencesService } from "./preferences";
+import { writeJsonFile } from "./atomic-json-file";
 import {
   type AgentDefinition,
   type AgentOption,
@@ -23,7 +23,7 @@ export type AgentCatalogControllerOptions = {
   commandExists: (command: string) => boolean;
   /** The currently selected agent name; removal of the active agent is refused. */
   getActiveAgentName: () => string;
-  onCatalogLoaded?: (renamed: Record<string, string>, customNames: string[]) => void | Promise<void>;
+  preferences?: Pick<PreferencesService, "migrateAgentSelection" | "completeAgentSelectionMigration">;
   /** Called whenever the registry overrides change so the runtime can pick them up live. */
   onOverridesChange?: (overrides: Record<string, string>) => void | Promise<void>;
 };
@@ -60,8 +60,7 @@ export function createAgentCatalogController(options: AgentCatalogControllerOpti
   }
 
   async function persist(): Promise<void> {
-    await mkdir(dirname(options.agentsJsonPath), { recursive: true });
-    await writeFile(options.agentsJsonPath, `${JSON.stringify(customs.map(serializeDefinition), null, 2)}\n`);
+    await writeJsonFile(options.agentsJsonPath, customs.map(serializeDefinition));
   }
 
   async function commit(next: AgentDefinition[]): Promise<void> {
@@ -76,10 +75,11 @@ export function createAgentCatalogController(options: AgentCatalogControllerOpti
       const loaded = parseAgentDefinitions(await loadAgentConfigFile(options.agentsJsonPath));
       const migration = migrateCollidingCustomAgentNames(loaded);
       customs = migration.definitions;
-      await options.onCatalogLoaded?.(migration.renamed, loaded.map((agent) => agent.name));
+      await options.preferences?.migrateAgentSelection(migration.renamed, loaded.map((agent) => agent.name));
       if (Object.keys(migration.renamed).length > 0) {
         await persist();
       }
+      await options.preferences?.completeAgentSelectionMigration();
       rebuild();
       return controller;
     },

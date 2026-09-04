@@ -161,7 +161,7 @@ export class AntigravityDriver implements SessionDriver {
             );
           }
         });
-        child.on("exit", (code) => {
+        child.on("close", (code) => {
           logDebug(SCOPE, "agy exited", code);
           if (cancelled) {
             settle("cancelled");

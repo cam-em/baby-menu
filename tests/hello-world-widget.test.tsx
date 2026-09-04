@@ -16,6 +16,13 @@ afterEach(() => {
 });
 
 describe("hello-world widget examples", () => {
+  it("renders the bundled starter widget and its onboarding copy", () => {
+    render(<>{helloWorldWidget.render()}</>);
+    expect(screen.getByText("hello world")).toBeTruthy();
+    expect(screen.getByText("tell baby menu what you would like it to become")).toBeTruthy();
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+  });
+
   it.each([
     "add a widget tracking my Gemini quota from Antigravity",
     "add a widget tracking my GPT quota from Codex",

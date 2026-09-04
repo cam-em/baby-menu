@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAgentCatalogController } from "../src/main/agent-catalog-controller";
-import { createPreferencesService } from "../src/main/preferences";
+import { createPreferencesService, type PreferencesService } from "../src/main/preferences";
 import { createAgentRegistry } from "acpx/runtime";
 
 describe("agent-catalog-controller", () => {
@@ -22,7 +22,7 @@ describe("agent-catalog-controller", () => {
   function create(overrides: {
     active?: string;
     onChange?: (o: Record<string, string>) => void;
-    onLoaded?: (r: Record<string, string>, names: string[]) => void | Promise<void>;
+    preferences?: PreferencesService;
   } = {}) {
     return createAgentCatalogController({
       agentsJsonPath,
@@ -30,7 +30,7 @@ describe("agent-catalog-controller", () => {
       adapterLauncher: ["node"],
       commandExists: () => true,
       getActiveAgentName: () => overrides.active ?? "gemini",
-      onCatalogLoaded: overrides.onLoaded,
+      preferences: overrides.preferences,
       onOverridesChange: overrides.onChange,
     });
   }
@@ -77,15 +77,16 @@ describe("agent-catalog-controller", () => {
     expect(second.options().map((o) => o.name)).toEqual(["gemini", "gpt", "rovo"]);
   });
 
-  it("persists colliding custom ids and reports saved-reference migrations", async () => {
+  it("persists colliding custom ids and migrates the saved reference", async () => {
     await writeFile(agentsJsonPath, JSON.stringify([
       { name: "gemini", label: "Custom Gemini", launchCommand: "custom-gemini-acp" },
       { name: "custom-gemini", launchCommand: "existing-acp" },
     ]));
-    const onMigrated = vi.fn();
-    const controller = await create({ onLoaded: onMigrated }).load();
+    const preferences = createPreferencesService({ userDataDir: dir, app: { setLoginItemSettings: vi.fn() } });
+    await preferences.setAgent("gemini");
+    const controller = await create({ preferences }).load();
     expect(controller.options().map((option) => option.name)).toEqual(["gemini", "gpt", "custom-gemini-2", "custom-gemini"]);
-    expect(onMigrated).toHaveBeenCalledWith({ gemini: "custom-gemini-2" }, ["gemini", "custom-gemini"]);
+    expect((await preferences.get()).agentName).toBe("custom-gemini-2");
     expect((await readJson()).map((agent) => agent.name)).toEqual(["custom-gemini-2", "custom-gemini"]);
   });
 
@@ -133,7 +134,7 @@ describe("agent-catalog-controller", () => {
     await writeFile(agentsJsonPath, JSON.stringify([{ name: custom, launchCommand: "custom-acp --stdio" }]));
     for (let restart = 0; restart < 2; restart += 1) {
       const preferences = createPreferencesService({ userDataDir: dir, app: { setLoginItemSettings: vi.fn() } });
-      await create({ onLoaded: async (renamed, names) => { await preferences.migrateAgentSelection(renamed, names); } }).load();
+      await create({ preferences }).load();
       expect((await preferences.apply()).agentName).toBe(expected);
       expect(JSON.parse(await readFile(join(dir, "preferences.json"), "utf8")).agentName).toBe(expected);
     }
