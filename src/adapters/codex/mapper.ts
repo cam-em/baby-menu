@@ -103,10 +103,9 @@ function openToolCall(item: CodexItem): schema.SessionUpdate {
   return {
     sessionUpdate: "tool_call",
     toolCallId: item.id!,
-    title: toolTitle(item),
+    title: item.type === "file_change" ? "editing extension" : "running command",
     kind: item.type === "file_change" ? "edit" : "execute",
     status: "in_progress",
-    rawInput: item.type === "file_change" ? { changes: item.changes } : { command: item.command },
   };
 }
 
@@ -115,31 +114,11 @@ function closeToolCall(item: CodexItem): schema.SessionUpdate {
     sessionUpdate: "tool_call_update",
     toolCallId: item.id!,
     status: isFailure(item) ? "failed" : "completed",
-    content: outputContent(item),
+    content: [],
   };
 }
 
 function isFailure(item: CodexItem): boolean {
   if (typeof item.exit_code === "number") return item.exit_code !== 0;
   return item.status === "failed";
-}
-
-function toolTitle(item: CodexItem): string {
-  if (item.type === "file_change") {
-    const first = item.changes?.[0]?.path;
-    return first ? `edit ${first.split("/").pop()}` : "file change";
-  }
-  if (typeof item.command === "string") return item.command.split("\n")[0]!.slice(0, 80);
-  return "command";
-}
-
-function outputContent(item: CodexItem): schema.ToolCallContent[] {
-  if (item.aggregated_output) {
-    return [{ type: "content", content: { type: "text", text: item.aggregated_output } }];
-  }
-  if (item.changes?.length) {
-    const summary = item.changes.map((c) => `${c.kind} ${c.path}`).join("\n");
-    return [{ type: "content", content: { type: "text", text: summary } }];
-  }
-  return [];
 }

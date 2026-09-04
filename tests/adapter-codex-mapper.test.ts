@@ -86,6 +86,29 @@ describe("mapCodexEvent (codex exec --json)", () => {
     expect(result.updates[1]).toMatchObject({ status: "failed" });
   });
 
+  it.each(["command_execution", "file_change"])("limits %s transcripts to safe lifecycle metadata", (type) => {
+    const item = {
+      id: "item_42",
+      type,
+      command: `cat ${process.cwd()}/credentials.json --token synthetic-secret`,
+      aggregated_output: `synthetic-secret from ${process.cwd()}`,
+      changes: [{ path: `${process.cwd()}/credentials.json`, kind: "synthetic-private-kind" }],
+      status: "completed",
+      exit_code: 0,
+    };
+    const opening = {
+      sessionUpdate: "tool_call",
+      toolCallId: item.id,
+      title: type === "file_change" ? "editing extension" : "running command",
+      kind: type === "file_change" ? "edit" : "execute",
+      status: "in_progress",
+    };
+    const closing = { sessionUpdate: "tool_call_update", toolCallId: item.id, status: "completed", content: [] };
+    expect(mapCodexEvent({ type: "item.started", item }).updates).toEqual([opening]);
+    expect(mapCodexEvent({ type: "item.completed", item }).updates)
+      .toEqual(type === "file_change" ? [closing] : [opening, closing]);
+  });
+
   it("resolves end_turn on turn.completed", () => {
     const result = mapCodexEvent({ type: "turn.completed" });
     expect(result.updates).toEqual([]);
