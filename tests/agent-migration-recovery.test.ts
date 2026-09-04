@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -21,6 +21,42 @@ afterEach(async () => {
 });
 
 describe("recoverable catalog and selection migration", () => {
+  it.each([false, true])("preserves selections and recovery state while the catalog is unavailable (pending=%s)", async (pending) => {
+    for (const invalid of ["{", "null", "{}", "[null]", '[{"name":"codex","launchCommand":42}]', "unreadable", "dangling-link"]) {
+      const directory = await mkdtemp(join(tmpdir(), "baby-menu-migration-unavailable-"));
+      directories.push(directory);
+      const catalogPath = join(directory, "agents.json");
+      const preferencesPath = join(directory, "preferences.json");
+      const journalPath = join(directory, "agent-selection-migration.json");
+      const original = { openAtLogin: false, agentName: pending ? "gpt" : "codex" };
+      const savedBytes = JSON.stringify(original);
+      const journalBytes = JSON.stringify({ version: 1, agentName: "custom-gpt" });
+      await writeFile(preferencesPath, savedBytes);
+      if (pending) await writeFile(journalPath, journalBytes);
+      if (invalid === "unreadable") await mkdir(catalogPath);
+      else if (invalid === "dangling-link") await symlink("missing-agents.json", catalogPath);
+      else await writeFile(catalogPath, invalid);
+      const preferences = createPreferencesService({ userDataDir: directory, app: { setLoginItemSettings: vi.fn() } });
+      const controller = createAgentCatalogController({
+        agentsJsonPath: catalogPath, preferences,
+        resolveAdapterPath: (adapter) => `${adapter}.mjs`, adapterLauncher: ["node"],
+        commandExists: () => true, getActiveAgentName: () => original.agentName,
+      });
+
+      await expect(controller.load()).rejects.toThrow("Agent configuration could not be loaded.");
+      expect(await readFile(preferencesPath, "utf8")).toBe(savedBytes);
+      if (pending) expect(await readFile(journalPath, "utf8")).toBe(journalBytes);
+      else await expect(readFile(journalPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+
+      if (invalid === "unreadable") await rm(catalogPath, { recursive: true });
+      else if (invalid === "dangling-link") await unlink(catalogPath);
+      await writeFile(catalogPath, JSON.stringify([{ name: original.agentName, launchCommand: "custom-acp" }]));
+      await controller.load();
+      expect((await preferences.get()).agentName).toBe(pending ? "custom-gpt" : "codex");
+      await expect(readFile(journalPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    }
+  });
+
   it.each([
     ["claude", "gemini", "gemini"],
     ["codex", "gpt", "gpt"],

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { lstat, readFile } from "node:fs/promises";
 import { createAgentRegistry } from "acpx/runtime";
 import type { BabyMenuCustomAgentInput } from "../shared/contracts";
 
@@ -230,9 +230,31 @@ export function agentRegistryOverrides(catalog: readonly AgentDefinition[]): Rec
 }
 
 export async function loadAgentConfigFile(filePath: string): Promise<unknown> {
+  let content: string;
   try {
-    return JSON.parse(await readFile(filePath, "utf8")) as unknown;
+    content = await readFile(filePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      try {
+        await lstat(filePath);
+      } catch (statError) {
+        if ((statError as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      }
+    }
+    throw new Error("Agent configuration could not be loaded.");
+  }
+  try {
+    const config: unknown = JSON.parse(content);
+    if (!Array.isArray(config) || !config.every((entry: unknown) => {
+      if (typeof entry !== "object" || entry === null || Array.isArray(entry)) return false;
+      const candidate = entry as Record<string, unknown>;
+      return typeof candidate.name === "string" && candidate.name.trim().length > 0
+        && ["label", "command", "launchCommand", "registryCommand", "installHint"].every(
+          (key) => candidate[key] === undefined || typeof candidate[key] === "string",
+        );
+    })) throw new Error("Invalid agent configuration.");
+    return config;
   } catch {
-    return undefined;
+    throw new Error("Agent configuration could not be loaded.");
   }
 }

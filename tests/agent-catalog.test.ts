@@ -139,7 +139,7 @@ describe("agent-catalog", () => {
     });
   });
 
-  it("loadAgentConfigFile returns undefined for a missing or malformed file", async () => {
+  it("loadAgentConfigFile returns undefined for a missing file", async () => {
     expect(await loadAgentConfigFile("/no/such/file.json")).toBeUndefined();
   });
 
