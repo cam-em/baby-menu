@@ -48,7 +48,7 @@ export class BridgeAgent implements Agent {
   async newSession(params: schema.NewSessionRequest): Promise<schema.NewSessionResponse> {
     await this.driver.start(params.cwd);
     this.sessionId = randomUUID();
-    logDebug(this.scope, "newSession", this.sessionId, params.cwd);
+    logDebug(this.scope, "newSession", this.sessionId);
     return { sessionId: this.sessionId };
   }
 

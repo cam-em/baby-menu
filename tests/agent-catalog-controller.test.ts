@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAgentCatalogController } from "../src/main/agent-catalog-controller";
+import { createPreferencesService } from "../src/main/preferences";
+import { createAgentRegistry } from "acpx/runtime";
 
 describe("agent-catalog-controller", () => {
   let dir: string;
@@ -17,14 +19,18 @@ describe("agent-catalog-controller", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  function create(overrides: { active?: string; onChange?: (o: Record<string, string>) => void; onMigrated?: (r: Record<string, string>) => void } = {}) {
+  function create(overrides: {
+    active?: string;
+    onChange?: (o: Record<string, string>) => void;
+    onLoaded?: (r: Record<string, string>, names: string[]) => void | Promise<void>;
+  } = {}) {
     return createAgentCatalogController({
       agentsJsonPath,
       resolveAdapterPath: (adapter) => `/o/${adapter}.js`,
       adapterLauncher: ["node"],
       commandExists: () => true,
       getActiveAgentName: () => overrides.active ?? "gemini",
-      onAgentNamesMigrated: overrides.onMigrated,
+      onCatalogLoaded: overrides.onLoaded,
       onOverridesChange: overrides.onChange,
     });
   }
@@ -77,10 +83,60 @@ describe("agent-catalog-controller", () => {
       { name: "custom-gemini", launchCommand: "existing-acp" },
     ]));
     const onMigrated = vi.fn();
-    const controller = await create({ onMigrated }).load();
+    const controller = await create({ onLoaded: onMigrated }).load();
     expect(controller.options().map((option) => option.name)).toEqual(["gemini", "gpt", "custom-gemini-2", "custom-gemini"]);
-    expect(onMigrated).toHaveBeenCalledWith({ gemini: "custom-gemini-2" });
+    expect(onMigrated).toHaveBeenCalledWith({ gemini: "custom-gemini-2" }, ["gemini", "custom-gemini"]);
     expect((await readJson()).map((agent) => agent.name)).toEqual(["custom-gemini-2", "custom-gemini"]);
+  });
+
+  it.each(["gemini", "gpt"])("preserves implicit registry resolution for migrated %s across reloads", async (name) => {
+    const original = { name, label: "Custom", command: name };
+    await writeFile(agentsJsonPath, JSON.stringify([original]));
+    const expectedCommand = createAgentRegistry().resolve(name);
+    const first = await create().load();
+    const second = await create().load();
+
+    for (const controller of [first, second]) {
+      expect(createAgentRegistry({ overrides: controller.overrides }).resolve(`custom-${name}`)).toBe(expectedCommand);
+      expect(controller.catalog.find((agent) => agent.name === `custom-${name}`)).toMatchObject({
+        command: original.command,
+        registryCommand: expectedCommand,
+      });
+    }
+    expect(await readJson()).toEqual([{ ...original, name: `custom-${name}`, registryCommand: expectedCommand }]);
+  });
+
+  it("retains explicit execution fields byte-for-byte through migration and reload", async () => {
+    const original = {
+      name: "gemini",
+      label: "Custom Gemini",
+      command: "gemini",
+      launchCommand: '  gemini-acp --profile "custom profile"  --stdio  ',
+      installHint: "Use the existing CLI",
+    };
+    await writeFile(agentsJsonPath, JSON.stringify([original]));
+    await create().load();
+    const restarted = await create().load();
+    expect(await readJson()).toEqual([{ ...original, name: "custom-gemini" }]);
+    expect(restarted.overrides["custom-gemini"]).toBe(original.launchCommand);
+  });
+
+  it.each([
+    ["claude", "gemini", "gemini"],
+    ["codex", "gpt", "gpt"],
+    ["gemini", "gemini", "custom-gemini"],
+    ["gpt", "gpt", "custom-gpt"],
+    ["claude", "claude", "claude"],
+    ["codex", "codex", "codex"],
+  ])("migrates saved %s with custom %s to %s across restarts", async (saved, custom, expected) => {
+    await writeFile(join(dir, "preferences.json"), JSON.stringify({ openAtLogin: false, agentName: saved }));
+    await writeFile(agentsJsonPath, JSON.stringify([{ name: custom, launchCommand: "custom-acp --stdio" }]));
+    for (let restart = 0; restart < 2; restart += 1) {
+      const preferences = createPreferencesService({ userDataDir: dir, app: { setLoginItemSettings: vi.fn() } });
+      await create({ onLoaded: async (renamed, names) => { await preferences.migrateAgentSelection(renamed, names); } }).load();
+      expect((await preferences.apply()).agentName).toBe(expected);
+      expect(JSON.parse(await readFile(join(dir, "preferences.json"), "utf8")).agentName).toBe(expected);
+    }
   });
 
   it("rejects adding a name that collides with a built-in", async () => {

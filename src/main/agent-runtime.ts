@@ -135,13 +135,16 @@ export function commandExists(command: string): boolean {
 }
 
 export function resolveDefaultAgentName(options: ResolveDefaultAgentNameOptions = {}): string | null {
-  const configuredAgent = options.env?.BABY_MENU_AGENT ?? process.env.BABY_MENU_AGENT;
-  if (configuredAgent?.trim()) return normalizeLegacyBuiltInAgentName(configuredAgent);
-
   const catalog = options.catalog ?? resolveAgentCatalog();
+  const configuredAgent = options.env?.BABY_MENU_AGENT ?? process.env.BABY_MENU_AGENT;
+  if (configuredAgent?.trim()) return normalizeLegacyBuiltInAgentName(
+    configuredAgent,
+    catalog.filter((agent) => !BUILT_IN_AGENT_NAMES.has(agent.name)).map((agent) => agent.name),
+  );
+
   if (catalog.length === 0) return null;
   const hasCommand = options.commandExists ?? commandExists;
-  const detected = catalog.find((agent) => (agent.launchCommand ? true : hasCommand(agent.command)))?.name;
+  const detected = catalog.find((agent) => (agent.launchCommand && !agent.adapter ? true : hasCommand(agent.command)))?.name;
   if (detected) return detected;
   return options.allowFallbackWhenMissing === false ? null : catalog[0].name;
 }

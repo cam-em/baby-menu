@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { BabyMenuCustomAgentInput, BabyMenuSettings } from "../shared/contracts";
 import { getRepoRoot } from "../shared/paths";
 import { createAgentCatalogController } from "./agent-catalog-controller";
-import { BabyMenuAgentRuntime, commandExists } from "./agent-runtime";
+import { BabyMenuAgentRuntime, commandExists, resolveDefaultAgentName } from "./agent-runtime";
 import { resolveBabyMenuRuntimePaths } from "./app-paths";
 import { seedExtensionWorkspace } from "./extension-seeder";
 import { registerIpcHandlers } from "./ipc";
@@ -183,7 +183,6 @@ export async function startBabyMenuApp(): Promise<void> {
     defaultOpenAtLogin: allowOpenAtLogin,
     allowOpenAtLogin,
   });
-  const persistedPreferences = await preferences.apply();
 
   // Built-in Gemini/GPT agents are driven through Antigravity/Codex by bundled
   // clean-room ACP adapters. Run them with Electron as Node (ELECTRON_RUN_AS_NODE)
@@ -201,19 +200,16 @@ export async function startBabyMenuApp(): Promise<void> {
     adapterLauncher,
     commandExists,
     getActiveAgentName: () => agentRuntime.currentAgent,
-    onAgentNamesMigrated: async (renamed) => {
-      const selected = persistedPreferences.agentName;
-      if (selected && renamed[selected]) {
-        persistedPreferences.agentName = renamed[selected];
-        await preferences.setAgent(renamed[selected]);
-      }
+    onCatalogLoaded: async (renamed, customNames) => {
+      await preferences.migrateAgentSelection(renamed, customNames);
     },
     onOverridesChange: (overrides) => agentRuntime.setRegistryOverrides(overrides),
   });
   await agentCatalog.load();
+  const persistedPreferences = await preferences.apply();
 
   agentRuntime = new BabyMenuAgentRuntime(paths.appDataRoot, {
-    agentName: persistedPreferences.agentName,
+    agentName: persistedPreferences.agentName ?? resolveDefaultAgentName({ catalog: agentCatalog.catalog }) ?? undefined,
     registryOverrides: Object.keys(agentCatalog.overrides).length > 0 ? agentCatalog.overrides : undefined,
     telemetry,
     paths: {

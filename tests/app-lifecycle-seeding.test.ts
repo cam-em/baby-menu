@@ -67,6 +67,7 @@ vi.mock("../src/main/agent-runtime", () => ({
     this.setRegistryOverrides = vi.fn();
   }),
   commandExists: vi.fn(() => false),
+  resolveDefaultAgentName: vi.fn(() => "gemini"),
 }));
 vi.mock("../src/main/agent-catalog-controller", () => ({
   createAgentCatalogController: vi.fn(() => ({

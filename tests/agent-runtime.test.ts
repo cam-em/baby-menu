@@ -80,6 +80,24 @@ describe("agent runtime defaults", () => {
     ).toBe("gemini");
   });
 
+  it.each(["claude", "codex"])("preserves a configured custom %s environment selection", (name) => {
+    expect(resolveDefaultAgentName({
+      env: { BABY_MENU_AGENT: name },
+      catalog: [{ name, label: name, command: name, launchCommand: "custom-acp" }],
+    })).toBe(name);
+  });
+
+  it("probes wrapped CLIs when choosing from an adapter-wired catalog", () => {
+    expect(resolveDefaultAgentName({
+      env: { BABY_MENU_AGENT: "" },
+      catalog: [
+        { name: "gemini", label: "Gemini", command: "agy", adapter: "antigravity", launchCommand: "antigravity-adapter" },
+        { name: "gpt", label: "GPT", command: "codex", adapter: "codex", launchCommand: "codex-adapter" },
+      ],
+      commandExists: available(["codex"]),
+    })).toBe("gpt");
+  });
+
   it("uses GPT through Codex when Antigravity is unavailable", () => {
     expect(
       resolveDefaultAgentName({

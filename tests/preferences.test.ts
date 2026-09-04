@@ -101,6 +101,19 @@ describe("preferences service", () => {
     await writeFile(join(userDataDir, "preferences.json"), JSON.stringify({ openAtLogin: false, agentName: legacy }));
     const service = createPreferencesService({ userDataDir, app: { setLoginItemSettings: vi.fn() }, defaultOpenAtLogin: false });
 
+    await expect(service.get()).resolves.toEqual({ openAtLogin: false, agentName: legacy });
+    await expect(service.migrateAgentSelection({}, [])).resolves.toEqual({ openAtLogin: false, agentName: replacement });
     await expect(service.get()).resolves.toEqual({ openAtLogin: false, agentName: replacement });
+  });
+
+  it.each(["claude", "codex"])("preserves a current custom %s selection on restart", async (name) => {
+    const userDataDir = await mkdtemp(join(tmpdir(), "baby-menu-prefs-"));
+    tempDirs.push(userDataDir);
+    const options = { userDataDir, app: { setLoginItemSettings: vi.fn() } };
+    const service = createPreferencesService(options);
+    expect((await service.setAgent(name)).agentName).toBe(name);
+    const restarted = createPreferencesService(options);
+    expect((await restarted.migrateAgentSelection({}, [name])).agentName).toBe(name);
+    expect((await restarted.get()).agentName).toBe(name);
   });
 });

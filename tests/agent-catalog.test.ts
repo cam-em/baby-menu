@@ -69,7 +69,7 @@ describe("agent-catalog", () => {
     const migration = migrateCollidingCustomAgentNames(definitions);
 
     expect(migration.definitions).toEqual([
-      { ...definitions[0], name: "custom-gemini" },
+      { ...definitions[0], name: "custom-gemini", registryCommand: "gemini --acp" },
       { ...definitions[1], name: "custom-gpt" },
     ]);
     const probes: string[] = [];
@@ -80,6 +80,7 @@ describe("agent-catalog", () => {
     expect(probes).toEqual(["gemini"]);
     expect(options.map((option) => option.available)).toEqual([true, true]);
     expect(agentRegistryOverrides(migration.definitions)).toEqual({
+      "custom-gemini": "gemini --acp",
       "custom-gpt": definitions[1]!.launchCommand,
     });
   });

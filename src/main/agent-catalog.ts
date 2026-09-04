@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { createAgentRegistry } from "acpx/runtime";
 import type { BabyMenuCustomAgentInput } from "../shared/contracts";
 
 export type AgentDefinition = {
@@ -12,6 +13,7 @@ export type AgentDefinition = {
   installHint?: string;
   /** When set, registered as an acpx registry override so a custom command launches this agent. */
   launchCommand?: string;
+  registryCommand?: string;
   /**
    * Built-in clean-room adapter that wraps this agent's CLI. When set, the host
    * injects a `launchCommand` pointing at the bundled adapter at runtime (the
@@ -50,8 +52,9 @@ export const DEFAULT_AGENTS: readonly AgentDefinition[] = [
 /** Names of the code-defined built-in agents; these are read-only in the UI. */
 export const BUILT_IN_AGENT_NAMES: ReadonlySet<string> = new Set(DEFAULT_AGENTS.map((agent) => agent.name));
 
-export function normalizeLegacyBuiltInAgentName(name: string): string {
+export function normalizeLegacyBuiltInAgentName(name: string, customNames: readonly string[] = []): string {
   const normalized = name.trim();
+  if (customNames.includes(normalized)) return normalized;
   return normalized === "claude" ? "gemini" : normalized === "codex" ? "gpt" : normalized;
 }
 
@@ -71,7 +74,13 @@ export function migrateCollidingCustomAgentNames(
     }
     occupied.add(name.toLowerCase());
     renamed[definition.name] = name;
-    return { ...definition, name };
+    return {
+      ...definition,
+      name,
+      ...(!definition.launchCommand && !definition.registryCommand
+        ? { registryCommand: createAgentRegistry().resolve(definition.name) }
+        : {}),
+    };
   });
   return { definitions: migrated, renamed };
 }
@@ -132,14 +141,17 @@ export function parseAgentDefinitions(config: unknown): AgentDefinition[] {
     const candidate = entry as Record<string, unknown>;
     const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
     if (!name) continue;
-    const command = typeof candidate.command === "string" ? candidate.command.trim() : "";
-    const launchCommand = typeof candidate.launchCommand === "string" ? candidate.launchCommand.trim() : "";
+    const command = typeof candidate.command === "string" && candidate.command.trim() ? candidate.command : "";
+    const launchCommand = typeof candidate.launchCommand === "string" && candidate.launchCommand.trim() ? candidate.launchCommand : "";
     definitions.push({
       name,
       label: typeof candidate.label === "string" && candidate.label.trim() ? candidate.label.trim() : name,
       command: command || name,
       installHint: typeof candidate.installHint === "string" ? candidate.installHint : undefined,
       launchCommand: launchCommand || undefined,
+      ...(typeof candidate.registryCommand === "string" && candidate.registryCommand.trim()
+        ? { registryCommand: candidate.registryCommand }
+        : {}),
     });
   }
   return definitions;
@@ -212,6 +224,7 @@ export function agentRegistryOverrides(catalog: readonly AgentDefinition[]): Rec
   const overrides: Record<string, string> = {};
   for (const agent of catalog) {
     if (agent.launchCommand) overrides[agent.name] = agent.launchCommand;
+    else if (agent.registryCommand) overrides[agent.name] = agent.registryCommand;
   }
   return overrides;
 }

@@ -16,19 +16,16 @@ afterEach(() => {
 });
 
 describe("hello-world widget examples", () => {
-  it("renders each example as a clickable button", () => {
+  it.each([
+    "add a widget tracking my Gemini quota from Antigravity",
+    "add a widget tracking my GPT quota from Codex",
+  ])("renders and copies the example: %s", async (prompt) => {
     render(<>{helloWorldWidget.render()}</>);
     const button = screen.getByRole("button", {
-      name: /add a widget tracking my Gemini quota from Antigravity/i,
+      name: new RegExp(prompt, "i"),
     });
     expect(button.tagName).toBe("BUTTON");
-  });
-
-  it("copies the example prompt to the clipboard when clicked", async () => {
-    render(<>{helloWorldWidget.render()}</>);
-    const prompt = "add a widget tracking my Gemini quota from Antigravity";
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(prompt, "i") }));
-
+    fireEvent.click(button);
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(prompt));
   });
 

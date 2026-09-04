@@ -16,6 +16,7 @@ export type PreferencesService = {
   get: () => Promise<BabyMenuPreferences>;
   setOpenAtLogin: (openAtLogin: boolean) => Promise<BabyMenuPreferences>;
   setAgent: (agentName: string) => Promise<BabyMenuPreferences>;
+  migrateAgentSelection: (renamed: Record<string, string>, customNames: readonly string[]) => Promise<BabyMenuPreferences>;
   apply: () => Promise<BabyMenuPreferences>;
 };
 
@@ -35,10 +36,7 @@ export function createPreferencesService({
   const filePath = join(userDataDir, "preferences.json");
 
   function normalizePreferences(preferences: BabyMenuPreferences): BabyMenuPreferences {
-    const savedAgentName = preferences.agentName?.trim();
-    // Releases before Gemini/GPT used provider CLI names as built-in ids.
-    // Migrate only those retired reserved ids; all other custom ids survive.
-    const agentName = savedAgentName ? normalizeLegacyBuiltInAgentName(savedAgentName) : undefined;
+    const agentName = preferences.agentName?.trim();
     return {
       openAtLogin: allowOpenAtLogin && preferences.openAtLogin,
       ...(agentName ? { agentName } : {}),
@@ -67,6 +65,14 @@ export function createPreferencesService({
 
   return {
     get: readPreferences,
+    async migrateAgentSelection(renamed, customNames) {
+      const current = await readPreferences();
+      if (!current.agentName) return current;
+      const agentName = Object.hasOwn(renamed, current.agentName)
+        ? renamed[current.agentName]
+        : normalizeLegacyBuiltInAgentName(current.agentName, customNames);
+      return agentName === current.agentName ? current : writePreferences({ ...current, agentName });
+    },
     async setOpenAtLogin(openAtLogin) {
       const current = await readPreferences();
       const preferences = await writePreferences(normalizePreferences({ ...current, openAtLogin }));

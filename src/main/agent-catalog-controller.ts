@@ -23,7 +23,7 @@ export type AgentCatalogControllerOptions = {
   commandExists: (command: string) => boolean;
   /** The currently selected agent name; removal of the active agent is refused. */
   getActiveAgentName: () => string;
-  onAgentNamesMigrated?: (renamed: Record<string, string>) => void | Promise<void>;
+  onCatalogLoaded?: (renamed: Record<string, string>, customNames: string[]) => void | Promise<void>;
   /** Called whenever the registry overrides change so the runtime can pick them up live. */
   onOverridesChange?: (overrides: Record<string, string>) => void | Promise<void>;
 };
@@ -73,13 +73,12 @@ export function createAgentCatalogController(options: AgentCatalogControllerOpti
 
   const controller: AgentCatalogController = {
     async load() {
-      const migration = migrateCollidingCustomAgentNames(
-        parseAgentDefinitions(await loadAgentConfigFile(options.agentsJsonPath)),
-      );
+      const loaded = parseAgentDefinitions(await loadAgentConfigFile(options.agentsJsonPath));
+      const migration = migrateCollidingCustomAgentNames(loaded);
       customs = migration.definitions;
+      await options.onCatalogLoaded?.(migration.renamed, loaded.map((agent) => agent.name));
       if (Object.keys(migration.renamed).length > 0) {
         await persist();
-        await options.onAgentNamesMigrated?.(migration.renamed);
       }
       rebuild();
       return controller;
@@ -121,6 +120,7 @@ export function createAgentCatalogController(options: AgentCatalogControllerOpti
 function serializeDefinition(agent: AgentDefinition): Record<string, string> {
   const entry: Record<string, string> = { name: agent.name, label: agent.label, command: agent.command };
   if (agent.launchCommand) entry.launchCommand = agent.launchCommand;
+  if (agent.registryCommand) entry.registryCommand = agent.registryCommand;
   if (agent.installHint) entry.installHint = agent.installHint;
   return entry;
 }
