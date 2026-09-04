@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { lstat, readFile } from "node:fs/promises";
+import { createAgentRegistry } from "acpx/runtime";
 import type { BabyMenuCustomAgentInput } from "../shared/contracts";
 
 export type AgentDefinition = {
@@ -12,13 +13,14 @@ export type AgentDefinition = {
   installHint?: string;
   /** When set, registered as an acpx registry override so a custom command launches this agent. */
   launchCommand?: string;
+  registryCommand?: string;
   /**
    * Built-in clean-room adapter that wraps this agent's CLI. When set, the host
    * injects a `launchCommand` pointing at the bundled adapter at runtime (the
    * path differs dev vs packaged), while availability still probes `command`
    * (the underlying CLI the adapter drives).
    */
-  adapter?: "claude" | "codex";
+  adapter?: "antigravity" | "codex";
 };
 
 export type AgentOption = {
@@ -32,23 +34,56 @@ export type AgentOption = {
 
 export const DEFAULT_AGENTS: readonly AgentDefinition[] = [
   {
-    name: "claude",
-    label: "Claude Code",
-    command: "claude",
-    adapter: "claude",
-    installHint: "Install the Claude Code CLI, then restart Baby Menu.",
+    name: "gemini",
+    label: "Gemini",
+    command: "agy",
+    adapter: "antigravity",
+    installHint: "Install the Antigravity CLI (`agy`), then restart Baby Menu.",
   },
   {
-    name: "codex",
-    label: "Codex",
+    name: "gpt",
+    label: "GPT",
     command: "codex",
     adapter: "codex",
-    installHint: "Install the Codex CLI, then restart Baby Menu.",
+    installHint: "Install the Codex CLI (`codex`), then restart Baby Menu.",
   },
 ];
 
 /** Names of the code-defined built-in agents; these are read-only in the UI. */
 export const BUILT_IN_AGENT_NAMES: ReadonlySet<string> = new Set(DEFAULT_AGENTS.map((agent) => agent.name));
+
+export function normalizeLegacyBuiltInAgentName(name: string, customNames: readonly string[] = []): string {
+  const normalized = name.trim();
+  if (customNames.includes(normalized)) return normalized;
+  return normalized === "claude" ? "gemini" : normalized === "codex" ? "gpt" : normalized;
+}
+
+export function migrateCollidingCustomAgentNames(
+  definitions: readonly AgentDefinition[],
+  builtIns: readonly AgentDefinition[] = DEFAULT_AGENTS,
+): { definitions: AgentDefinition[]; renamed: Record<string, string> } {
+  const reserved = new Set(builtIns.map((agent) => agent.name.toLowerCase()));
+  const occupied = new Set(definitions.map((agent) => agent.name.toLowerCase()));
+  const renamed: Record<string, string> = {};
+  const migrated = definitions.map((definition) => {
+    if (!reserved.has(definition.name.toLowerCase())) return { ...definition };
+    const base = `custom-${definition.name.toLowerCase()}`;
+    let name = base;
+    for (let suffix = 2; occupied.has(name.toLowerCase()) || reserved.has(name.toLowerCase()); suffix += 1) {
+      name = `${base}-${suffix}`;
+    }
+    occupied.add(name.toLowerCase());
+    renamed[definition.name] = name;
+    return {
+      ...definition,
+      name,
+      ...(!definition.launchCommand && !definition.registryCommand
+        ? { registryCommand: createAgentRegistry().resolve(definition.name) }
+        : {}),
+    };
+  });
+  return { definitions: migrated, renamed };
+}
 
 /** A custom agent id is a slug: starts alphanumeric, then letters/digits/._- */
 const CUSTOM_AGENT_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]*$/i;
@@ -106,14 +141,17 @@ export function parseAgentDefinitions(config: unknown): AgentDefinition[] {
     const candidate = entry as Record<string, unknown>;
     const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
     if (!name) continue;
-    const command = typeof candidate.command === "string" ? candidate.command.trim() : "";
-    const launchCommand = typeof candidate.launchCommand === "string" ? candidate.launchCommand.trim() : "";
+    const command = typeof candidate.command === "string" && candidate.command.trim() ? candidate.command : "";
+    const launchCommand = typeof candidate.launchCommand === "string" && candidate.launchCommand.trim() ? candidate.launchCommand : "";
     definitions.push({
       name,
       label: typeof candidate.label === "string" && candidate.label.trim() ? candidate.label.trim() : name,
       command: command || name,
       installHint: typeof candidate.installHint === "string" ? candidate.installHint : undefined,
       launchCommand: launchCommand || undefined,
+      ...(typeof candidate.registryCommand === "string" && candidate.registryCommand.trim()
+        ? { registryCommand: candidate.registryCommand }
+        : {}),
     });
   }
   return definitions;
@@ -122,12 +160,16 @@ export function parseAgentDefinitions(config: unknown): AgentDefinition[] {
 export function resolveAgentCatalog(options: ResolveAgentCatalogOptions = {}): AgentDefinition[] {
   const defaults = options.defaults ?? DEFAULT_AGENTS;
   const order = defaults.map((agent) => agent.name);
+  const builtInNames = new Set(defaults.map((agent) => agent.name.toLowerCase()));
   const byName = new Map<string, AgentDefinition>(defaults.map((agent) => [agent.name, { ...agent }]));
 
   for (const definition of parseAgentDefinitions(options.config)) {
-    const existing = byName.get(definition.name);
-    if (!existing) order.push(definition.name);
-    byName.set(definition.name, existing ? { ...existing, ...definition, adapter: definition.launchCommand ? undefined : existing.adapter } : definition);
+    // Built-ins are a product contract: Gemini always routes through agy and
+    // GPT always routes through Codex. agents.json remains additive for custom
+    // ACP agents but cannot silently redirect a built-in label.
+    if (builtInNames.has(definition.name.toLowerCase())) continue;
+    if (!byName.has(definition.name)) order.push(definition.name);
+    byName.set(definition.name, definition);
   }
 
   return order.map((name) => byName.get(name)!);
@@ -135,7 +177,7 @@ export function resolveAgentCatalog(options: ResolveAgentCatalogOptions = {}): A
 
 /**
  * Injects the bundled adapter launchCommand for every built-in adapter agent.
- * `resolveAdapterPath("claude")` returns the absolute path to the adapter's
+ * `resolveAdapterPath("antigravity")` returns the absolute path to the adapter's
  * bundled entry; the host resolves it differently in dev vs packaged mode.
  * `launcher` is the command + leading args that run the adapter as a Node
  * program (e.g. `["node"]`, or `["env", "ELECTRON_RUN_AS_NODE=1", electronPath]`
@@ -145,7 +187,7 @@ export function resolveAgentCatalog(options: ResolveAgentCatalogOptions = {}): A
  */
 export function withAdapterLaunchCommands(
   catalog: readonly AgentDefinition[],
-  resolveAdapterPath: (adapter: "claude" | "codex") => string,
+  resolveAdapterPath: (adapter: "antigravity" | "codex") => string,
   launcher: string[] = ["node"],
 ): AgentDefinition[] {
   return catalog.map((agent) => {
@@ -165,7 +207,7 @@ export function toAgentOptions(
   commandExists: (command: string) => boolean,
 ): AgentOption[] {
   return catalog.map((agent) => {
-    const custom = !BUILT_IN_AGENT_NAMES.has(agent.name);
+    const custom = !BUILT_IN_AGENT_NAMES.has(agent.name.toLowerCase());
     return {
       name: agent.name,
       label: agent.label,
@@ -182,14 +224,37 @@ export function agentRegistryOverrides(catalog: readonly AgentDefinition[]): Rec
   const overrides: Record<string, string> = {};
   for (const agent of catalog) {
     if (agent.launchCommand) overrides[agent.name] = agent.launchCommand;
+    else if (agent.registryCommand) overrides[agent.name] = agent.registryCommand;
   }
   return overrides;
 }
 
 export async function loadAgentConfigFile(filePath: string): Promise<unknown> {
+  let content: string;
   try {
-    return JSON.parse(await readFile(filePath, "utf8")) as unknown;
+    content = await readFile(filePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      try {
+        await lstat(filePath);
+      } catch (statError) {
+        if ((statError as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      }
+    }
+    throw new Error("Agent configuration could not be loaded.");
+  }
+  try {
+    const config: unknown = JSON.parse(content);
+    if (!Array.isArray(config) || !config.every((entry: unknown) => {
+      if (typeof entry !== "object" || entry === null || Array.isArray(entry)) return false;
+      const candidate = entry as Record<string, unknown>;
+      return typeof candidate.name === "string" && candidate.name.trim().length > 0
+        && ["label", "command", "launchCommand", "registryCommand", "installHint"].every(
+          (key) => candidate[key] === undefined || typeof candidate[key] === "string",
+        );
+    })) throw new Error("Invalid agent configuration.");
+    return config;
   } catch {
-    return undefined;
+    throw new Error("Agent configuration could not be loaded.");
   }
 }

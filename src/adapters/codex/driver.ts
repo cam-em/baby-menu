@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type * as schema from "@agentclientprotocol/sdk";
 import { AdapterTurnError, type SessionDriver, type UpdateSink } from "../shared/types.js";
 import { LineReader } from "../shared/line-reader.js";
-import { logDebug, logError } from "../shared/log.js";
+import { logDebug } from "../shared/log.js";
 import { childEnv } from "../shared/child-env.js";
 import { mapCodexEvent, type CodexExecEvent } from "./mapper.js";
 
@@ -133,7 +133,7 @@ export class CodexDriver implements SessionDriver {
           try {
             event = JSON.parse(line) as CodexExecEvent;
           } catch {
-            logDebug(SCOPE, "non-json stdout line", line);
+            logDebug(SCOPE, "non-json stdout bytes", Buffer.byteLength(line));
             continue;
           }
           // The driver owns thread id capture (the mapper is pure/ACP-only).
@@ -151,13 +151,14 @@ export class CodexDriver implements SessionDriver {
           }
         }
       });
-      child.stderr.setEncoding("utf8");
-      child.stderr.on("data", (chunk: string) => logDebug(SCOPE, "stderr", chunk.trimEnd()));
+      // Provider stderr can contain request or account diagnostics. Keep only a
+      // byte count in opt-in debug logs; typed mapper failures own UI copy.
+      child.stderr.on("data", (chunk: Buffer) => logDebug(SCOPE, "stderr bytes", chunk.byteLength));
       child.on("error", () => {
         if (cancelled) settle("cancelled");
-        else fail(new AdapterTurnError("CLI_START_FAILED", "Codex CLI could not be started."));
+        else fail(new AdapterTurnError("CLI_START_FAILED", "Codex CLI could not be started. Install `codex`, then restart Baby Menu."));
       });
-      child.on("exit", (code) => {
+      child.on("close", (code) => {
         logDebug(SCOPE, "codex exec exited", code);
         if (cancelled) {
           settle("cancelled");
@@ -168,7 +169,7 @@ export class CodexDriver implements SessionDriver {
           return;
         }
         if (code !== 0) {
-          fail(new AdapterTurnError("CLI_EXIT_FAILED", `Codex CLI exited with code ${code ?? "unknown"}.`));
+          fail(new AdapterTurnError("CLI_EXIT_FAILED", `GPT's Codex CLI exited unexpectedly (code ${code ?? "unknown"}).`));
           return;
         }
         // turn.completed is authoritative; retain the historical clean-exit

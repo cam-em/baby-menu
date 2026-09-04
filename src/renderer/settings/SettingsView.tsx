@@ -128,6 +128,7 @@ export function SettingsView({ sections, runtimeImporter }: SettingsViewProps = 
 
       <section className="flex flex-col gap-2" role="radiogroup" aria-label="agent">
         <span className="text-xxs uppercase tracking-caps text-ink-label">agent</span>
+        <span className="text-xs text-ink-soft">Gemini runs through Antigravity; GPT runs through Codex.</span>
         {agents.map((agent) => {
           const active = agent.name === agentName;
           const switchBlocked = Boolean(agentSwitchDisabledReason && !active);
@@ -197,21 +198,21 @@ export function SettingsView({ sections, runtimeImporter }: SettingsViewProps = 
               <Input
                 value={agentForm?.name ?? ""}
                 disabled={agentForm?.mode === "edit"}
-                placeholder="gemini"
+                placeholder="my-agent"
                 onChange={(event) => setAgentForm((form) => (form ? { ...form, name: event.target.value } : form))}
               />
             </Field>
             <Field label="label" hint="Optional display name; defaults to the id.">
               <Input
                 value={agentForm?.label ?? ""}
-                placeholder="Gemini"
+                placeholder="My agent"
                 onChange={(event) => setAgentForm((form) => (form ? { ...form, label: event.target.value } : form))}
               />
             </Field>
             <Field label="command" hint="The ACP launch command.">
               <Input
                 value={agentForm?.command ?? ""}
-                placeholder="gemini acp"
+                placeholder="my-agent acp"
                 onChange={(event) => setAgentForm((form) => (form ? { ...form, command: event.target.value } : form))}
               />
             </Field>

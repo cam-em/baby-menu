@@ -3,8 +3,8 @@ import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BabyMenuCustomAgentInput, BabyMenuSettings } from "../shared/contracts";
 import { getRepoRoot } from "../shared/paths";
-import { createAgentCatalogController } from "./agent-catalog-controller";
-import { BabyMenuAgentRuntime, commandExists } from "./agent-runtime";
+import { AGENT_CONFIGURATION_UNAVAILABLE, createAgentCatalogController } from "./agent-catalog-controller";
+import { BabyMenuAgentRuntime, commandExists, resolveDefaultAgentName } from "./agent-runtime";
 import { resolveBabyMenuRuntimePaths } from "./app-paths";
 import { seedExtensionWorkspace } from "./extension-seeder";
 import { registerIpcHandlers } from "./ipc";
@@ -19,7 +19,7 @@ import {
 import { createBackgroundTaskScheduler } from "./background-task-scheduler";
 import { createExtensionDatabase } from "./extension-database";
 import { createNotifier } from "./notifier";
-import { createPreferencesService } from "./preferences";
+import { createPreferencesService, type BabyMenuPreferences } from "./preferences";
 import { createBackgroundTaskSource, createServerActionRegistry } from "./server-action-registry";
 import { getDefaultTelemetry, initDefaultTelemetry } from "./telemetry";
 import { expandProcessPathForGuiLaunch } from "./shell-path";
@@ -183,10 +183,9 @@ export async function startBabyMenuApp(): Promise<void> {
     defaultOpenAtLogin: allowOpenAtLogin,
     allowOpenAtLogin,
   });
-  const persistedPreferences = await preferences.apply();
 
-  // Built-in claude/codex agents are driven by the bundled clean-room ACP
-  // adapters. Run them with the bundled Electron as Node (ELECTRON_RUN_AS_NODE)
+  // Built-in Gemini/GPT agents are driven through Antigravity/Codex by bundled
+  // clean-room ACP adapters. Run them with Electron as Node (ELECTRON_RUN_AS_NODE)
   // so there is no dependency on a separately-installed `node` - the same class
   // of PATH fragility that made the agent look "unavailable" before.
   const adapterLauncher = ["env", "ELECTRON_RUN_AS_NODE=1", process.execPath];
@@ -201,14 +200,28 @@ export async function startBabyMenuApp(): Promise<void> {
     adapterLauncher,
     commandExists,
     getActiveAgentName: () => agentRuntime.currentAgent,
+    environmentAgentName: process.env.BABY_MENU_AGENT,
+    preferences,
     onOverridesChange: (overrides) => agentRuntime.setRegistryOverrides(overrides),
   });
-  await agentCatalog.load();
+  let agentConfigurationError: string | undefined;
+  try {
+    await agentCatalog.load();
+  } catch {
+    agentConfigurationError = AGENT_CONFIGURATION_UNAVAILABLE;
+  }
+  let persistedPreferences: BabyMenuPreferences = { openAtLogin: false };
+  try {
+    persistedPreferences = await preferences.apply();
+  } catch {
+    agentConfigurationError = AGENT_CONFIGURATION_UNAVAILABLE;
+  }
 
   agentRuntime = new BabyMenuAgentRuntime(paths.appDataRoot, {
-    agentName: persistedPreferences.agentName,
+    agentName: persistedPreferences.agentName ?? resolveDefaultAgentName({ catalog: agentCatalog.catalog }) ?? undefined,
     registryOverrides: Object.keys(agentCatalog.overrides).length > 0 ? agentCatalog.overrides : undefined,
     telemetry,
+    unavailableReason: agentConfigurationError,
     paths: {
       extensionsDir: paths.extensionsDir,
       agentStateDir: paths.agentStateDir,
@@ -220,12 +233,14 @@ export async function startBabyMenuApp(): Promise<void> {
   const notify = createNotifier();
 
   async function buildSettings(): Promise<BabyMenuSettings> {
-    const current = await preferences.get();
+    const current = await preferences.get().catch(() => persistedPreferences);
     return {
       openAtLogin: current.openAtLogin,
       agentName: agentRuntime.currentAgent,
-      agentSwitchDisabledReason: agentRuntime.agentSwitchDisabledReason,
-      agents: agentCatalog.options(),
+      agentSwitchDisabledReason: agentConfigurationError ?? agentRuntime.agentSwitchDisabledReason,
+      agents: agentCatalog.options().map((agent) => agentConfigurationError
+        ? { ...agent, available: false, installHint: agentConfigurationError }
+        : agent),
     };
   }
 
@@ -236,19 +251,23 @@ export async function startBabyMenuApp(): Promise<void> {
       return buildSettings();
     },
     async setAgent(agentName: string) {
+      if (agentConfigurationError) throw new Error(agentConfigurationError);
       await agentRuntime.setAgent(agentName);
       await preferences.setAgent(agentName);
       return buildSettings();
     },
     async addAgent(input: BabyMenuCustomAgentInput) {
+      if (agentConfigurationError) throw new Error(agentConfigurationError);
       await agentCatalog.addAgent(input);
       return buildSettings();
     },
     async updateAgent(name: string, input: { label?: string; command: string }) {
+      if (agentConfigurationError) throw new Error(agentConfigurationError);
       await agentCatalog.updateAgent(name, input);
       return buildSettings();
     },
     async removeAgent(name: string) {
+      if (agentConfigurationError) throw new Error(agentConfigurationError);
       await agentCatalog.removeAgent(name);
       return buildSettings();
     },

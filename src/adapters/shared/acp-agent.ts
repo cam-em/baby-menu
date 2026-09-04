@@ -7,7 +7,7 @@ import { logDebug, logError } from "./log.js";
 
 /**
  * A generic ACP agent (server) that bridges acpx (the client) to a backend CLI
- * via a `SessionDriver`. Both the Claude and Codex adapters share this wiring;
+ * via a `SessionDriver`. Both the Antigravity and Codex adapters share this wiring;
  * only the driver differs.
  *
  * baby-menu runs a single persistent session per process (fixed sessionKey), so
@@ -39,8 +39,8 @@ export class BridgeAgent implements Agent {
     };
   }
 
-  // baby-menu drives already-authenticated CLIs (the user's installed claude /
-  // codex), so there is nothing to authenticate at the ACP layer.
+  // baby-menu drives already-authenticated provider CLIs (`agy` / `codex`), so
+  // there is nothing to authenticate at the ACP layer.
   async authenticate(_params: schema.AuthenticateRequest): Promise<schema.AuthenticateResponse> {
     return {};
   }
@@ -48,7 +48,7 @@ export class BridgeAgent implements Agent {
   async newSession(params: schema.NewSessionRequest): Promise<schema.NewSessionResponse> {
     await this.driver.start(params.cwd);
     this.sessionId = randomUUID();
-    logDebug(this.scope, "newSession", this.sessionId, params.cwd);
+    logDebug(this.scope, "newSession", this.sessionId);
     return { sessionId: this.sessionId };
   }
 

@@ -1,0 +1,156 @@
+import { mkdir, mkdtemp, readFile, rename, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createAgentCatalogController } from "../src/main/agent-catalog-controller";
+import { createPreferencesService } from "../src/main/preferences";
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, rename: vi.fn(actual.rename), unlink: vi.fn(actual.unlink) };
+});
+
+const directories: string[] = [];
+afterEach(async () => {
+  vi.mocked(rename).mockReset();
+  vi.mocked(unlink).mockReset();
+  const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+  vi.mocked(rename).mockImplementation(actual.rename);
+  vi.mocked(unlink).mockImplementation(actual.unlink);
+  await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
+});
+
+describe("recoverable catalog and selection migration", () => {
+  it.each([false, true])("requires readable preferences before catalog migration (pending=%s)", async (pending) => {
+    for (const invalid of ["{", "null", "[]", '{"agentName":42}', "unreadable"]) {
+      const directory = await mkdtemp(join(tmpdir(), "baby-menu-preferences-unavailable-"));
+      directories.push(directory);
+      const catalogPath = join(directory, "agents.json");
+      const preferencesPath = join(directory, "preferences.json");
+      const journalPath = join(directory, "agent-selection-migration.json");
+      const original = JSON.stringify([{ name: "gemini", launchCommand: "custom-acp" }]);
+      const journal = JSON.stringify({ version: 1, agentName: "custom-gemini" });
+      await writeFile(catalogPath, original);
+      if (pending) await writeFile(journalPath, journal);
+      if (invalid === "unreadable") await mkdir(preferencesPath);
+      else await writeFile(preferencesPath, invalid);
+      const preferences = createPreferencesService({ userDataDir: directory, app: { setLoginItemSettings: vi.fn() } });
+      const controller = createAgentCatalogController({
+        agentsJsonPath: catalogPath, preferences,
+        resolveAdapterPath: (adapter) => `${adapter}.mjs`, adapterLauncher: ["node"],
+        commandExists: () => true, getActiveAgentName: () => "gemini",
+      });
+      await expect(controller.load()).rejects.toThrow("Preferences could not be loaded");
+      expect(controller.unavailableReason).toContain("restart Baby Menu");
+      await expect(controller.addAgent({ name: "extra", command: "extra-acp" })).rejects.toThrow("Agent configuration is unavailable");
+      expect(await readFile(catalogPath, "utf8")).toBe(original);
+      if (pending) expect(await readFile(journalPath, "utf8")).toBe(journal);
+      else await expect(readFile(journalPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      if (invalid === "unreadable") await rm(preferencesPath, { recursive: true });
+      else expect(await readFile(preferencesPath, "utf8")).toBe(invalid);
+      await writeFile(preferencesPath, JSON.stringify({ openAtLogin: false, agentName: "gemini" }));
+      await controller.load();
+      expect(controller.unavailableReason).toBeUndefined();
+      expect((await preferences.get()).agentName).toBe("custom-gemini");
+      await expect(readFile(journalPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    }
+  });
+
+  it.each([false, true])("preserves selections and recovery state while the catalog is unavailable (pending=%s)", async (pending) => {
+    for (const invalid of ["{", "null", "{}", "[null]", '[{"name":"codex","launchCommand":42}]', "unreadable", "dangling-link"]) {
+      const directory = await mkdtemp(join(tmpdir(), "baby-menu-migration-unavailable-"));
+      directories.push(directory);
+      const catalogPath = join(directory, "agents.json");
+      const preferencesPath = join(directory, "preferences.json");
+      const journalPath = join(directory, "agent-selection-migration.json");
+      const original = { openAtLogin: false, agentName: pending ? "gpt" : "codex" };
+      const savedBytes = JSON.stringify(original);
+      const journalBytes = JSON.stringify({ version: 1, agentName: "custom-gpt" });
+      await writeFile(preferencesPath, savedBytes);
+      if (pending) await writeFile(journalPath, journalBytes);
+      if (invalid === "unreadable") await mkdir(catalogPath);
+      else if (invalid === "dangling-link") await symlink("missing-agents.json", catalogPath);
+      else await writeFile(catalogPath, invalid);
+      const preferences = createPreferencesService({ userDataDir: directory, app: { setLoginItemSettings: vi.fn() } });
+      const controller = createAgentCatalogController({
+        agentsJsonPath: catalogPath, preferences,
+        resolveAdapterPath: (adapter) => `${adapter}.mjs`, adapterLauncher: ["node"],
+        commandExists: () => true, getActiveAgentName: () => original.agentName,
+      });
+
+      await expect(controller.load()).rejects.toThrow("Agent configuration could not be loaded.");
+      expect(await readFile(preferencesPath, "utf8")).toBe(savedBytes);
+      if (pending) expect(await readFile(journalPath, "utf8")).toBe(journalBytes);
+      else await expect(readFile(journalPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+
+      if (invalid === "unreadable") await rm(catalogPath, { recursive: true });
+      else if (invalid === "dangling-link") await unlink(catalogPath);
+      await writeFile(catalogPath, JSON.stringify([{ name: original.agentName, launchCommand: "custom-acp" }]));
+      await controller.load();
+      expect((await preferences.get()).agentName).toBe(pending ? "custom-gpt" : "codex");
+      await expect(readFile(journalPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    }
+  });
+
+  it.each([
+    ["claude", "gemini", "gemini", "preferences"],
+    ["codex", "gpt", "gpt", "preferences"],
+    ["gemini", "gemini", "custom-gemini", "preferences"],
+    ["gpt", "gpt", "custom-gpt", "preferences"],
+    ["gemini", "gemini", "custom-gemini", "environment"],
+    ["gpt", "gpt", "custom-gpt", "environment"],
+  ])("retains %s with custom %s as %s from %s at every write boundary", async (saved, custom, expected, source) => {
+    const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+    for (const boundary of ["journal", "preferences", "catalog", "retirement"]) {
+      const directory = await mkdtemp(join(tmpdir(), "baby-menu-migration-"));
+      directories.push(directory);
+      const catalogPath = join(directory, "agents.json");
+      const preferencesPath = join(directory, "preferences.json");
+      const journalPath = join(directory, "agent-selection-migration.json");
+      const original = { name: custom, label: "Custom", command: custom, launchCommand: "custom-acp --stdio" };
+      await writeFile(catalogPath, JSON.stringify([original]));
+      await writeFile(preferencesPath, JSON.stringify({ openAtLogin: false, agentName: source === "preferences" ? saved : undefined }));
+      const create = () => {
+        const preferences = createPreferencesService({ userDataDir: directory, app: { setLoginItemSettings: vi.fn() } });
+        const controller = createAgentCatalogController({
+          agentsJsonPath: catalogPath,
+          preferences,
+          environmentAgentName: source === "environment" ? saved : undefined,
+          resolveAdapterPath: (adapter) => `${adapter}.mjs`,
+          adapterLauncher: ["node"],
+          commandExists: () => true,
+          getActiveAgentName: () => expected,
+        });
+        return { preferences, controller };
+      };
+      const failure = new Error("interrupted migration");
+      const target = boundary === "journal" ? journalPath : boundary === "preferences" ? preferencesPath : catalogPath;
+      vi.mocked(rename).mockImplementation(async (from, to) => {
+        if (boundary !== "retirement" && to === target) throw failure;
+        await actual.rename(from, to);
+      });
+      vi.mocked(unlink).mockImplementation(async (path) => {
+        if (boundary === "retirement" && path === journalPath) throw failure;
+        await actual.unlink(path);
+      });
+
+      await expect(create().controller.load()).rejects.toBe(failure);
+      if (boundary === "journal") {
+        expect(JSON.parse(await readFile(preferencesPath, "utf8")).agentName).toBe(source === "preferences" ? saved : undefined);
+        expect(JSON.parse(await readFile(catalogPath, "utf8"))).toEqual([original]);
+      } else {
+        expect(JSON.parse(await readFile(journalPath, "utf8"))).toEqual({ version: 1, agentName: expected });
+      }
+      vi.mocked(rename).mockImplementation(actual.rename);
+      vi.mocked(unlink).mockImplementation(actual.unlink);
+
+      for (let restart = 0; restart < 2; restart += 1) {
+        const { preferences, controller } = create();
+        await controller.load();
+        expect(await preferences.get()).toEqual({ openAtLogin: false, agentName: expected });
+        expect(JSON.parse(await readFile(catalogPath, "utf8"))).toEqual([{ ...original, name: `custom-${custom}` }]);
+        await expect(readFile(journalPath, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      }
+    }
+  });
+});

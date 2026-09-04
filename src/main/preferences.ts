@@ -1,5 +1,7 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { lstat, readFile, unlink } from "node:fs/promises";
+import { join } from "node:path";
+import { normalizeLegacyBuiltInAgentName } from "./agent-catalog";
+import { writeJsonFile } from "./atomic-json-file";
 
 export type BabyMenuPreferences = {
   openAtLogin: boolean;
@@ -15,6 +17,8 @@ export type PreferencesService = {
   get: () => Promise<BabyMenuPreferences>;
   setOpenAtLogin: (openAtLogin: boolean) => Promise<BabyMenuPreferences>;
   setAgent: (agentName: string) => Promise<BabyMenuPreferences>;
+  migrateAgentSelection: (renamed: Record<string, string>, customNames: readonly string[], environmentAgentName?: string) => Promise<BabyMenuPreferences>;
+  completeAgentSelectionMigration: () => Promise<void>;
   apply: () => Promise<BabyMenuPreferences>;
 };
 
@@ -32,6 +36,7 @@ export function createPreferencesService({
   allowOpenAtLogin = true,
 }: CreatePreferencesServiceOptions): PreferencesService {
   const filePath = join(userDataDir, "preferences.json");
+  const migrationPath = join(userDataDir, "agent-selection-migration.json");
 
   function normalizePreferences(preferences: BabyMenuPreferences): BabyMenuPreferences {
     const agentName = preferences.agentName?.trim();
@@ -47,22 +52,76 @@ export function createPreferencesService({
   }
 
   async function readPreferences(): Promise<BabyMenuPreferences> {
+    let content: string;
     try {
-      const parsed = JSON.parse(await readFile(filePath, "utf8")) as Partial<BabyMenuPreferences>;
+      content = await readFile(filePath, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        try {
+          await lstat(filePath);
+        } catch (statError) {
+          if ((statError as NodeJS.ErrnoException).code === "ENOENT") {
+            return normalizePreferences({ openAtLogin: defaultOpenAtLogin });
+          }
+        }
+      }
+      throw new Error("Preferences could not be loaded.");
+    }
+    try {
+      const parsed = JSON.parse(content) as Partial<BabyMenuPreferences> | null;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)
+        || (parsed.openAtLogin !== undefined && typeof parsed.openAtLogin !== "boolean")
+        || (parsed.agentName !== undefined && typeof parsed.agentName !== "string")) {
+        throw new Error("Invalid preferences.");
+      }
       return normalizePreferences({ openAtLogin: parsed.openAtLogin ?? defaultOpenAtLogin, agentName: parsed.agentName });
     } catch {
-      return normalizePreferences({ openAtLogin: defaultOpenAtLogin });
+      throw new Error("Preferences could not be loaded.");
     }
   }
 
   async function writePreferences(preferences: BabyMenuPreferences): Promise<BabyMenuPreferences> {
-    await mkdir(dirname(filePath), { recursive: true });
-    await writeFile(filePath, `${JSON.stringify(preferences, null, 2)}\n`);
+    await writeJsonFile(filePath, preferences);
     return preferences;
+  }
+
+  async function pendingAgentSelection(): Promise<string | undefined> {
+    let content: string;
+    try {
+      content = await readFile(migrationPath, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      throw error;
+    }
+    const pending = JSON.parse(content) as { version?: unknown; agentName?: unknown } | null;
+    if (pending?.version !== 1 || typeof pending.agentName !== "string"
+      || !/^(?:gemini|gpt|custom-(?:gemini|gpt)(?:-\d+)?)$/.test(pending.agentName)) {
+      throw new Error("Invalid pending agent selection migration.");
+    }
+    return pending.agentName;
   }
 
   return {
     get: readPreferences,
+    async migrateAgentSelection(renamed, customNames, environmentAgentName) {
+      const pending = await pendingAgentSelection();
+      const current = await readPreferences();
+      if (pending) {
+        return current.agentName === pending ? current : writePreferences({ ...current, agentName: pending });
+      }
+      const selected = current.agentName ?? environmentAgentName?.trim();
+      if (!selected) return current;
+      const customRenamed = Object.hasOwn(renamed, selected);
+      const agentName = customRenamed ? renamed[selected] : normalizeLegacyBuiltInAgentName(selected, customNames);
+      if (agentName === selected || (!current.agentName && !customRenamed)) return current;
+      await writeJsonFile(migrationPath, { version: 1, agentName });
+      return writePreferences({ ...current, agentName });
+    },
+    async completeAgentSelectionMigration() {
+      await unlink(migrationPath).catch((error: NodeJS.ErrnoException) => {
+        if (error.code !== "ENOENT") throw error;
+      });
+    },
     async setOpenAtLogin(openAtLogin) {
       const current = await readPreferences();
       const preferences = await writePreferences(normalizePreferences({ ...current, openAtLogin }));

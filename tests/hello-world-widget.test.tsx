@@ -16,25 +16,29 @@ afterEach(() => {
 });
 
 describe("hello-world widget examples", () => {
-  it("renders each example as a clickable button", () => {
+  it("renders the bundled starter widget and its onboarding copy", () => {
     render(<>{helloWorldWidget.render()}</>);
-    const button = screen.getByRole("button", {
-      name: /add a widget tracking my weekly claude code quota/i,
-    });
-    expect(button.tagName).toBe("BUTTON");
+    expect(screen.getByText("hello world")).toBeTruthy();
+    expect(screen.getByText("tell baby menu what you would like it to become")).toBeTruthy();
+    expect(screen.getAllByRole("button")).toHaveLength(2);
   });
 
-  it("copies the example prompt to the clipboard when clicked", async () => {
+  it.each([
+    "add a widget tracking my Gemini quota from Antigravity",
+    "add a widget tracking my GPT quota from Codex",
+  ])("renders and copies the example: %s", async (prompt) => {
     render(<>{helloWorldWidget.render()}</>);
-    const prompt = "add a widget tracking my weekly claude code quota";
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(prompt, "i") }));
-
+    const button = screen.getByRole("button", {
+      name: new RegExp(prompt, "i"),
+    });
+    expect(button.tagName).toBe("BUTTON");
+    fireEvent.click(button);
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(prompt));
   });
 
   it("shows transient copied feedback after a click", async () => {
     render(<>{helloWorldWidget.render()}</>);
-    const prompt = "add a widget showing current cpu and memory usage %";
+    const prompt = "add a widget tracking my GPT quota from Codex";
     fireEvent.click(screen.getByRole("button", { name: new RegExp(prompt, "i") }));
 
     await waitFor(() => expect(screen.getByText(/copied/i)).toBeTruthy());

@@ -13,7 +13,7 @@ import {
 } from "acpx/runtime";
 import type { AgentActiveTurn, AgentChatResult, GitActionResult, GitSessionSnapshot, WorkspaceChange } from "../shared/contracts";
 import type { AgentRuntimeStatus } from "../shared/contracts";
-import { BUILT_IN_AGENT_NAMES, type AgentDefinition, resolveAgentCatalog } from "./agent-catalog";
+import { BUILT_IN_AGENT_NAMES, type AgentDefinition, normalizeLegacyBuiltInAgentName, resolveAgentCatalog } from "./agent-catalog";
 import { getAgentStateDir, getDevExtensionSnapshotDir, getExtensionsDir } from "../shared/paths";
 import { AgentTurnLogRecorder } from "./agent-turn-log";
 import { DevExtensionChangeSession } from "./dev-extension-change-session";
@@ -26,6 +26,7 @@ export type BabyMenuAgentRuntimeOptions = {
   requestTimeoutMs?: number;
   paths?: BabyMenuAgentRuntimePaths;
   telemetry?: TelemetryClient;
+  unavailableReason?: string;
 };
 
 export type BabyMenuAgentRuntimePaths = {
@@ -135,13 +136,16 @@ export function commandExists(command: string): boolean {
 }
 
 export function resolveDefaultAgentName(options: ResolveDefaultAgentNameOptions = {}): string | null {
-  const configuredAgent = options.env?.BABY_MENU_AGENT ?? process.env.BABY_MENU_AGENT;
-  if (configuredAgent?.trim()) return configuredAgent.trim();
-
   const catalog = options.catalog ?? resolveAgentCatalog();
+  const configuredAgent = options.env?.BABY_MENU_AGENT ?? process.env.BABY_MENU_AGENT;
+  if (configuredAgent?.trim()) return normalizeLegacyBuiltInAgentName(
+    configuredAgent,
+    catalog.filter((agent) => !BUILT_IN_AGENT_NAMES.has(agent.name)).map((agent) => agent.name),
+  );
+
   if (catalog.length === 0) return null;
   const hasCommand = options.commandExists ?? commandExists;
-  const detected = catalog.find((agent) => (agent.launchCommand ? true : hasCommand(agent.command)))?.name;
+  const detected = catalog.find((agent) => (agent.launchCommand && !agent.adapter ? true : hasCommand(agent.command)))?.name;
   if (detected) return detected;
   return options.allowFallbackWhenMissing === false ? null : catalog[0].name;
 }
@@ -343,10 +347,13 @@ export class BabyMenuAgentRuntime {
   private readonly paths: BabyMenuAgentRuntimePaths | undefined;
   private readonly telemetry: TelemetryClient | undefined;
 
+  private readonly unavailableReason: string | undefined;
+
   constructor(
     private readonly rootDir: string,
     options: string | BabyMenuAgentRuntimeOptions = {},
   ) {
+    this.unavailableReason = typeof options === "string" ? undefined : options.unavailableReason;
     this.agentName =
       typeof options === "string"
         ? options
@@ -402,6 +409,7 @@ export class BabyMenuAgentRuntime {
   }
 
   get agentSwitchDisabledReason(): string | undefined {
+    if (this.unavailableReason) return this.unavailableReason;
     if (this.activeTurn) return "Agent is running. Wait for it to finish before switching agents.";
     if (this.activeSession?.canSave || this.activeSession?.canRollback) {
       return "Save or Rollback the current agent changes before switching agents.";
@@ -415,6 +423,7 @@ export class BabyMenuAgentRuntime {
    * session so the next send() starts the new agent with a fresh conversation.
    */
   async setAgent(name: string): Promise<void> {
+    if (this.unavailableReason) throw new Error(this.unavailableReason);
     const next = name.trim();
     if (!next || next === this.agentName) return;
 
@@ -428,6 +437,7 @@ export class BabyMenuAgentRuntime {
   }
 
   async send(prompt: string, options: BabyMenuAgentRuntimeSendOptions = {}): Promise<AgentChatResult> {
+    if (this.unavailableReason) return { assistantText: this.unavailableReason };
     if (this.activeTurn) {
       return {
         assistantText: "An agent turn is already running. Wait for it to finish before asking again.",

@@ -1,8 +1,10 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAgentCatalogController } from "../src/main/agent-catalog-controller";
+import { createPreferencesService, type PreferencesService } from "../src/main/preferences";
+import { createAgentRegistry } from "acpx/runtime";
 
 describe("agent-catalog-controller", () => {
   let dir: string;
@@ -17,13 +19,20 @@ describe("agent-catalog-controller", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  function create(overrides: { active?: string; onChange?: (o: Record<string, string>) => void } = {}) {
+  function create(overrides: {
+    active?: string;
+    onChange?: (o: Record<string, string>) => void;
+    preferences?: PreferencesService;
+    environmentAgentName?: string;
+  } = {}) {
     return createAgentCatalogController({
       agentsJsonPath,
       resolveAdapterPath: (adapter) => `/o/${adapter}.js`,
       adapterLauncher: ["node"],
       commandExists: () => true,
-      getActiveAgentName: () => overrides.active ?? "claude",
+      getActiveAgentName: () => overrides.active ?? "gemini",
+      preferences: overrides.preferences,
+      environmentAgentName: overrides.environmentAgentName,
       onOverridesChange: overrides.onChange,
     });
   }
@@ -34,8 +43,8 @@ describe("agent-catalog-controller", () => {
 
   it("starts with only the built-ins and their adapter overrides", async () => {
     const controller = await create().load();
-    expect(controller.options().map((o) => o.name)).toEqual(["claude", "codex"]);
-    expect(controller.overrides).toEqual({ claude: "node /o/claude.js", codex: "node /o/codex.js" });
+    expect(controller.options().map((o) => o.name)).toEqual(["gemini", "gpt"]);
+    expect(controller.overrides).toEqual({ gemini: "node /o/antigravity.js", gpt: "node /o/codex.js" });
   });
 
   it("adds a custom agent, persists it, rebuilds overrides, and notifies", async () => {
@@ -44,60 +53,147 @@ describe("agent-catalog-controller", () => {
 
     const options = controller.options();
     void options;
-    await controller.addAgent({ name: "gemini", label: "Gemini", command: "gemini acp" });
+    await controller.addAgent({ name: "rovo", label: "Rovo", command: "rovo acp" });
 
-    expect(controller.options().find((o) => o.name === "gemini")).toMatchObject({
-      name: "gemini",
-      label: "Gemini",
+    expect(controller.options().find((o) => o.name === "rovo")).toMatchObject({
+      name: "rovo",
+      label: "Rovo",
       available: true,
       custom: true,
-      command: "gemini acp",
+      command: "rovo acp",
     });
     expect(controller.overrides).toEqual({
-      claude: "node /o/claude.js",
-      codex: "node /o/codex.js",
-      gemini: "gemini acp",
+      gemini: "node /o/antigravity.js",
+      gpt: "node /o/codex.js",
+      rovo: "rovo acp",
     });
     expect(onChange).toHaveBeenLastCalledWith(controller.overrides);
-    expect(await readJson()).toEqual([{ name: "gemini", label: "Gemini", command: "gemini", launchCommand: "gemini acp" }]);
+    expect(await readJson()).toEqual([{ name: "rovo", label: "Rovo", command: "rovo", launchCommand: "rovo acp" }]);
   });
 
   it("loads previously persisted custom agents", async () => {
     const first = await create().load();
-    await first.addAgent({ name: "gemini", command: "gemini acp" });
+    await first.addAgent({ name: "rovo", command: "rovo acp" });
 
     const second = await create().load();
-    expect(second.options().map((o) => o.name)).toEqual(["claude", "codex", "gemini"]);
+    expect(second.options().map((o) => o.name)).toEqual(["gemini", "gpt", "rovo"]);
+  });
+
+  it("persists colliding custom ids and migrates the saved reference", async () => {
+    await writeFile(agentsJsonPath, JSON.stringify([
+      { name: "gemini", label: "Custom Gemini", launchCommand: "custom-gemini-acp" },
+      { name: "custom-gemini", launchCommand: "existing-acp" },
+    ]));
+    const preferences = createPreferencesService({ userDataDir: dir, app: { setLoginItemSettings: vi.fn() } });
+    await preferences.setAgent("gemini");
+    const controller = await create({ preferences }).load();
+    expect(controller.options().map((option) => option.name)).toEqual(["gemini", "gpt", "custom-gemini-2", "custom-gemini"]);
+    expect((await preferences.get()).agentName).toBe("custom-gemini-2");
+    expect((await readJson()).map((agent) => agent.name)).toEqual(["custom-gemini-2", "custom-gemini"]);
+  });
+
+  it.each(["gemini", "gpt"])("preserves implicit registry resolution for migrated %s across reloads", async (name) => {
+    const original = { name, label: "Custom", command: name };
+    await writeFile(agentsJsonPath, JSON.stringify([original]));
+    const expectedCommand = createAgentRegistry().resolve(name);
+    const first = await create().load();
+    const second = await create().load();
+
+    for (const controller of [first, second]) {
+      expect(createAgentRegistry({ overrides: controller.overrides }).resolve(`custom-${name}`)).toBe(expectedCommand);
+      expect(controller.catalog.find((agent) => agent.name === `custom-${name}`)).toMatchObject({
+        command: original.command,
+        registryCommand: expectedCommand,
+      });
+    }
+    expect(await readJson()).toEqual([{ ...original, name: `custom-${name}`, registryCommand: expectedCommand }]);
+  });
+
+  it("retains explicit execution fields byte-for-byte through migration and reload", async () => {
+    const original = {
+      name: "gemini",
+      label: "Custom Gemini",
+      command: "gemini",
+      launchCommand: '  gemini-acp --profile "custom profile"  --stdio  ',
+      installHint: "Use the existing CLI",
+    };
+    await writeFile(agentsJsonPath, JSON.stringify([original]));
+    await create().load();
+    const restarted = await create().load();
+    expect(await readJson()).toEqual([{ ...original, name: "custom-gemini" }]);
+    expect(restarted.overrides["custom-gemini"]).toBe(original.launchCommand);
+  });
+
+  it.each([
+    ["claude", "gemini", "gemini"],
+    ["codex", "gpt", "gpt"],
+    ["gemini", "gemini", "custom-gemini"],
+    ["gpt", "gpt", "custom-gpt"],
+    ["claude", "claude", "claude"],
+    ["codex", "codex", "codex"],
+  ])("migrates saved %s with custom %s to %s across restarts", async (saved, custom, expected) => {
+    await writeFile(join(dir, "preferences.json"), JSON.stringify({ openAtLogin: false, agentName: saved }));
+    await writeFile(agentsJsonPath, JSON.stringify([{ name: custom, launchCommand: "custom-acp --stdio" }]));
+    for (let restart = 0; restart < 2; restart += 1) {
+      const preferences = createPreferencesService({ userDataDir: dir, app: { setLoginItemSettings: vi.fn() } });
+      await create({ preferences }).load();
+      expect((await preferences.apply()).agentName).toBe(expected);
+      expect(JSON.parse(await readFile(join(dir, "preferences.json"), "utf8")).agentName).toBe(expected);
+    }
   });
 
   it("rejects adding a name that collides with a built-in", async () => {
     const controller = await create().load();
-    await expect(controller.addAgent({ name: "claude", command: "x" })).rejects.toThrow(/built-in/i);
+    await expect(controller.addAgent({ name: "gemini", command: "x" })).rejects.toThrow(/built-in/i);
+  });
+
+  it.each(["gemini", "gpt"])("preserves an environment-selected custom %s across restarts", async (name) => {
+    await writeFile(agentsJsonPath, JSON.stringify([{ name, launchCommand: "custom-acp --stdio" }]));
+    for (let restart = 0; restart < 2; restart += 1) {
+      const preferences = createPreferencesService({ userDataDir: dir, app: { setLoginItemSettings: vi.fn() } });
+      const catalog = await create({ preferences, environmentAgentName: ` ${name} ` }).load();
+      expect((await preferences.get()).agentName).toBe(`custom-${name}`);
+      expect(catalog.overrides[`custom-${name}`]).toBe("custom-acp --stdio");
+    }
+  });
+
+  it("keeps saved selection precedence over a colliding environment selection", async () => {
+    await writeFile(agentsJsonPath, JSON.stringify([{ name: "gemini", launchCommand: "custom-acp" }]));
+    const preferences = createPreferencesService({ userDataDir: dir, app: { setLoginItemSettings: vi.fn() } });
+    await preferences.setAgent("gpt");
+    await create({ preferences, environmentAgentName: "gemini" }).load();
+    expect((await preferences.get()).agentName).toBe("gpt");
+  });
+
+  it("does not pin an unchanged environment fallback as a saved preference", async () => {
+    const preferences = createPreferencesService({ userDataDir: dir, app: { setLoginItemSettings: vi.fn() } });
+    await create({ preferences, environmentAgentName: "gemini" }).load();
+    expect((await preferences.get()).agentName).toBeUndefined();
   });
 
   it("updates an existing custom agent's command", async () => {
     const controller = await create().load();
-    await controller.addAgent({ name: "gemini", command: "gemini acp" });
-    await controller.updateAgent("gemini", { command: "gemini acp --beta", label: "Gemini Beta" });
+    await controller.addAgent({ name: "rovo", command: "rovo acp" });
+    await controller.updateAgent("rovo", { command: "rovo acp --beta", label: "Rovo Beta" });
 
-    expect(controller.overrides.gemini).toBe("gemini acp --beta");
-    expect(controller.options().find((o) => o.name === "gemini")?.label).toBe("Gemini Beta");
+    expect(controller.overrides.rovo).toBe("rovo acp --beta");
+    expect(controller.options().find((o) => o.name === "rovo")?.label).toBe("Rovo Beta");
   });
 
   it("removes a custom agent and persists the removal", async () => {
-    const controller = await create({ active: "claude" }).load();
-    await controller.addAgent({ name: "gemini", command: "gemini acp" });
-    await controller.removeAgent("gemini");
+    const controller = await create({ active: "gemini" }).load();
+    await controller.addAgent({ name: "rovo", command: "rovo acp" });
+    await controller.removeAgent("rovo");
 
-    expect(controller.options().map((o) => o.name)).toEqual(["claude", "codex"]);
-    expect(controller.overrides.gemini).toBeUndefined();
+    expect(controller.options().map((o) => o.name)).toEqual(["gemini", "gpt"]);
+    expect(controller.overrides.rovo).toBeUndefined();
     expect(await readJson()).toEqual([]);
   });
 
   it("refuses to remove the currently active agent", async () => {
-    const controller = await create({ active: "gemini" }).load();
-    await controller.addAgent({ name: "gemini", command: "gemini acp" });
-    await expect(controller.removeAgent("gemini")).rejects.toThrow(/active|switch/i);
-    expect(controller.options().find((o) => o.name === "gemini")).toBeTruthy();
+    const controller = await create({ active: "rovo" }).load();
+    await controller.addAgent({ name: "rovo", command: "rovo acp" });
+    await expect(controller.removeAgent("rovo")).rejects.toThrow(/active|switch/i);
+    expect(controller.options().find((o) => o.name === "rovo")).toBeTruthy();
   });
 });

@@ -10,13 +10,32 @@ function buildAgent(driver: SessionDriver) {
 }
 
 describe("BridgeAgent failure contract", () => {
+  it("omits the workspace from enabled session diagnostics", async () => {
+    const driver: SessionDriver = {
+      start: vi.fn(async () => undefined),
+      prompt: vi.fn(async () => "end_turn" as const),
+      dispose: vi.fn(async () => undefined),
+    };
+    const write = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    vi.stubEnv("BABY_MENU_ADAPTER_DEBUG", "1");
+    try {
+      const cwd = process.cwd();
+      const { sessionId } = await buildAgent(driver).newSession({ cwd, mcpServers: [] });
+      expect(driver.start).toHaveBeenCalledWith(cwd);
+      expect(write.mock.calls.map(([text]) => text)).toEqual([`[test-adapter] newSession ${sessionId}\n`]);
+    } finally {
+      write.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("rejects a typed authentication failure as a safe ACP request error", async () => {
     const driver: SessionDriver = {
       start: vi.fn(async () => undefined),
       prompt: vi.fn(async () => {
         throw new AdapterTurnError(
           "AUTHENTICATION_FAILED",
-          "Codex is not authenticated. Run `codex login` and try again.",
+          "GPT is not authenticated in Codex. Run `codex login` and try again.",
         );
       }),
       dispose: vi.fn(async () => undefined),
@@ -29,7 +48,7 @@ describe("BridgeAgent failure contract", () => {
     ).rejects.toMatchObject({
       name: "RequestError",
       code: -32000,
-      message: "Authentication required: Codex is not authenticated. Run `codex login` and try again.",
+      message: "Authentication required: GPT is not authenticated in Codex. Run `codex login` and try again.",
       data: { adapterCode: "AUTHENTICATION_FAILED" },
     });
   });

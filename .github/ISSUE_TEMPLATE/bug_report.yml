@@ -46,8 +46,8 @@ body:
     attributes:
       label: Agent
       options:
-        - claude
-        - codex
+        - Gemini (Antigravity)
+        - GPT (Codex)
         - pi
         - acpx-mock
         - other / not sure

@@ -133,7 +133,7 @@ describe("telemetry client", () => {
       fetch,
     });
 
-    client.track("agent_turn", { agent: "claude", status: "success" });
+    client.track("agent_turn", { agent: "gemini", status: "success" });
     await client.close(500);
 
     expect(requests.length).toBe(1);
@@ -148,7 +148,7 @@ describe("telemetry client", () => {
     expect(payload.url).toBe("app://baby-menu/agent_turn");
     expect(payload.name).toBe("agent_turn");
     const data = payload.data as Record<string, unknown>;
-    expect(data.agent).toBe("claude");
+    expect(data.agent).toBe("gemini");
     expect(data.status).toBe("success");
     expect(data.platform).toBe("darwin");
     expect(data.arch).toBe("arm64");

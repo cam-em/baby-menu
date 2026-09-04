@@ -8,8 +8,8 @@ import type { BabyMenuApi, BabyMenuCustomAgentInput, BabyMenuSettings, PopoverVi
 function installBabyMenuApi(settings?: Partial<BabyMenuSettings>): BabyMenuApi {
   const base: BabyMenuSettings = {
     openAtLogin: false,
-    agentName: "claude",
-    agents: [{ name: "claude", label: "Claude Code", available: true }],
+    agentName: "gemini",
+    agents: [{ name: "gemini", label: "Gemini", available: true }],
     ...settings,
   };
   let current = base;
@@ -113,53 +113,54 @@ describe("settings view", () => {
 
   it("shows unavailable agents disabled with an install hint", async () => {
     installBabyMenuApi({
-      agentName: "claude",
+      agentName: "gemini",
       agents: [
-        { name: "claude", label: "Claude Code", available: true },
-        { name: "codex", label: "Codex", available: false, installHint: "Install the Codex CLI." },
+        { name: "gemini", label: "Gemini", available: true },
+        { name: "gpt", label: "GPT", available: false, installHint: "Install the Codex CLI (`codex`)." },
       ],
     });
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "open settings" }));
 
-    const codex = await screen.findByRole("radio", { name: /Codex/ });
-    expect((codex as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText("Install the Codex CLI.")).toBeTruthy();
+    const gpt = await screen.findByRole("radio", { name: /GPT/ });
+    expect((gpt as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Install the Codex CLI (`codex`).")).toBeTruthy();
+    expect(screen.getByText("Gemini runs through Antigravity; GPT runs through Codex.")).toBeTruthy();
   });
 
   it("confirms before switching agents and calls setAgent on confirm", async () => {
     const api = installBabyMenuApi({
-      agentName: "claude",
+      agentName: "gemini",
       agents: [
-        { name: "claude", label: "Claude Code", available: true },
-        { name: "codex", label: "Codex", available: true },
+        { name: "gemini", label: "Gemini", available: true },
+        { name: "gpt", label: "GPT", available: true },
       ],
     });
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "open settings" }));
 
-    fireEvent.click(await screen.findByRole("radio", { name: /Codex/ }));
+    fireEvent.click(await screen.findByRole("radio", { name: /GPT/ }));
 
     // Confirmation must make the conversation-reset consequence clear.
     expect(await screen.findByText(/will reset the current conversation/i)).toBeTruthy();
     expect(api.settings.setAgent).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: /switch and reset/i }));
-    await waitFor(() => expect(api.settings.setAgent).toHaveBeenCalledWith("codex"));
+    await waitFor(() => expect(api.settings.setAgent).toHaveBeenCalledWith("gpt"));
   });
 
   it("does not switch agents when the confirmation is cancelled", async () => {
     const api = installBabyMenuApi({
-      agentName: "claude",
+      agentName: "gemini",
       agents: [
-        { name: "claude", label: "Claude Code", available: true },
-        { name: "codex", label: "Codex", available: true },
+        { name: "gemini", label: "Gemini", available: true },
+        { name: "gpt", label: "GPT", available: true },
       ],
     });
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "open settings" }));
 
-    fireEvent.click(await screen.findByRole("radio", { name: /Codex/ }));
+    fireEvent.click(await screen.findByRole("radio", { name: /GPT/ }));
     fireEvent.click(await screen.findByRole("button", { name: /cancel/i }));
 
     await waitFor(() => expect(screen.queryByText(/will reset/i)).toBeNull());
@@ -168,21 +169,21 @@ describe("settings view", () => {
 
   it("disables agent switching with a visible reason when switching is blocked", async () => {
     const api = installBabyMenuApi({
-      agentName: "claude",
+      agentName: "gemini",
       agentSwitchDisabledReason: "Save or Rollback the current agent changes before switching agents.",
       agents: [
-        { name: "claude", label: "Claude Code", available: true },
-        { name: "codex", label: "Codex", available: true },
+        { name: "gemini", label: "Gemini", available: true },
+        { name: "gpt", label: "GPT", available: true },
       ],
     });
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "open settings" }));
 
-    const codex = await screen.findByRole("radio", { name: /Codex/ });
+    const gpt = await screen.findByRole("radio", { name: /GPT/ });
 
-    expect((codex as HTMLButtonElement).disabled).toBe(true);
+    expect((gpt as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText("Save or Rollback the current agent changes before switching agents.")).toBeTruthy();
-    fireEvent.click(codex);
+    fireEvent.click(gpt);
     expect(screen.queryByText(/will reset the current conversation/i)).toBeNull();
     expect(api.settings.setAgent).not.toHaveBeenCalled();
   });
@@ -219,57 +220,57 @@ describe("settings view", () => {
   }
 
   it("adds a custom ACP agent through the dialog", async () => {
-    const api = installBabyMenuApi({ agents: [{ name: "claude", label: "Claude Code", available: true }] });
+    const api = installBabyMenuApi({ agents: [{ name: "gemini", label: "Gemini", available: true }] });
     await openSettings();
 
     fireEvent.click(screen.getByRole("button", { name: /add agent/i }));
-    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: "gemini" } });
-    fireEvent.change(screen.getByLabelText(/^command$/i), { target: { value: "gemini acp" } });
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: "rovo" } });
+    fireEvent.change(screen.getByLabelText(/^command$/i), { target: { value: "rovo acp" } });
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() =>
-      expect(api.settings.addAgent).toHaveBeenCalledWith({ name: "gemini", label: undefined, command: "gemini acp" }),
+      expect(api.settings.addAgent).toHaveBeenCalledWith({ name: "rovo", label: undefined, command: "rovo acp" }),
     );
-    expect(await screen.findByRole("radio", { name: /Gemini/i })).toBeTruthy();
+    expect(await screen.findByRole("radio", { name: /Rovo/i })).toBeTruthy();
   });
 
   it("shows edit/remove controls only for custom agents", async () => {
     installBabyMenuApi({
       agents: [
-        { name: "claude", label: "Claude Code", available: true },
-        { name: "gemini", label: "Gemini", available: true, custom: true, command: "gemini acp" },
+        { name: "gemini", label: "Gemini", available: true },
+        { name: "rovo", label: "Rovo", available: true, custom: true, command: "rovo acp" },
       ],
     });
     await openSettings();
 
-    expect(screen.queryByRole("button", { name: /remove Claude Code/i })).toBeNull();
-    expect(await screen.findByRole("button", { name: /remove Gemini/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /edit Gemini/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /remove Gemini/i })).toBeNull();
+    expect(await screen.findByRole("button", { name: /remove Rovo/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /edit Rovo/i })).toBeTruthy();
   });
 
   it("removes a custom agent", async () => {
     const api = installBabyMenuApi({
       agents: [
-        { name: "claude", label: "Claude Code", available: true },
-        { name: "gemini", label: "Gemini", available: true, custom: true, command: "gemini acp" },
+        { name: "gemini", label: "Gemini", available: true },
+        { name: "rovo", label: "Rovo", available: true, custom: true, command: "rovo acp" },
       ],
     });
     await openSettings();
 
-    fireEvent.click(await screen.findByRole("button", { name: /remove Gemini/i }));
-    await waitFor(() => expect(api.settings.removeAgent).toHaveBeenCalledWith("gemini"));
-    await waitFor(() => expect(screen.queryByRole("radio", { name: /Gemini/i })).toBeNull());
+    fireEvent.click(await screen.findByRole("button", { name: /remove Rovo/i }));
+    await waitFor(() => expect(api.settings.removeAgent).toHaveBeenCalledWith("rovo"));
+    await waitFor(() => expect(screen.queryByRole("radio", { name: /Rovo/i })).toBeNull());
   });
 
   it("surfaces the error when adding an invalid agent and keeps the dialog open", async () => {
-    const api = installBabyMenuApi({ agents: [{ name: "claude", label: "Claude Code", available: true }] });
+    const api = installBabyMenuApi({ agents: [{ name: "gemini", label: "Gemini", available: true }] });
     api.settings.addAgent = vi.fn(async () => {
-      throw new Error('"claude" is a built-in agent name. Choose a different name.');
+      throw new Error('"gemini" is a built-in agent name. Choose a different name.');
     });
     await openSettings();
 
     fireEvent.click(screen.getByRole("button", { name: /add agent/i }));
-    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: "claude" } });
+    fireEvent.change(screen.getByLabelText(/^name$/i), { target: { value: "gemini" } });
     fireEvent.change(screen.getByLabelText(/^command$/i), { target: { value: "x" } });
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
 

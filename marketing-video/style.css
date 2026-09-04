@@ -425,7 +425,7 @@ body {
   box-shadow: var(--signal-glow);
 }
 
-/* claude per-model breakdown rows */
+/* gemini per-model breakdown rows */
 .models {
   display: flex;
   flex-direction: column;

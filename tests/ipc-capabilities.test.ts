@@ -254,27 +254,27 @@ describe("capabilities IPC", () => {
       currentTurn: vi.fn(),
     };
     const settings = {
-      get: vi.fn(async () => ({ openAtLogin: false, agentName: "claude", agents: [] })),
-      setOpenAtLogin: vi.fn(async (openAtLogin: boolean) => ({ openAtLogin, agentName: "claude", agents: [] })),
+      get: vi.fn(async () => ({ openAtLogin: false, agentName: "gemini", agents: [] })),
+      setOpenAtLogin: vi.fn(async (openAtLogin: boolean) => ({ openAtLogin, agentName: "gemini", agents: [] })),
       setAgent: vi.fn(async (agentName: string) => ({ openAtLogin: false, agentName, agents: [] })),
-      addAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "claude", agents: [] })),
-      updateAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "claude", agents: [] })),
-      removeAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "claude", agents: [] })),
+      addAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "gemini", agents: [] })),
+      updateAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "gemini", agents: [] })),
+      removeAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "gemini", agents: [] })),
     };
 
     registerIpcHandlers("/repo", agentRuntime, undefined, undefined, undefined, settings);
 
-    await expect(handlers.get("baby-menu:settings:get")?.({})).resolves.toEqual({ openAtLogin: false, agentName: "claude", agents: [] });
-    await expect(handlers.get("baby-menu:settings:set-open-at-login")?.({}, true)).resolves.toEqual({ openAtLogin: true, agentName: "claude", agents: [] });
+    await expect(handlers.get("baby-menu:settings:get")?.({})).resolves.toEqual({ openAtLogin: false, agentName: "gemini", agents: [] });
+    await expect(handlers.get("baby-menu:settings:set-open-at-login")?.({}, true)).resolves.toEqual({ openAtLogin: true, agentName: "gemini", agents: [] });
     expect(settings.setOpenAtLogin).toHaveBeenCalledWith(true);
-    await expect(handlers.get("baby-menu:settings:set-agent")?.({}, "codex")).resolves.toEqual({ openAtLogin: false, agentName: "codex", agents: [] });
-    expect(settings.setAgent).toHaveBeenCalledWith("codex");
+    await expect(handlers.get("baby-menu:settings:set-agent")?.({}, "gpt")).resolves.toEqual({ openAtLogin: false, agentName: "gpt", agents: [] });
+    expect(settings.setAgent).toHaveBeenCalledWith("gpt");
   });
 
   it("registers settings channels for custom agent management", async () => {
     const { registerIpcHandlers } = await import("../src/main/ipc");
     const agentRuntime = { send: vi.fn(), save: vi.fn(), rollback: vi.fn(), currentSessionSnapshot: vi.fn(), currentTurn: vi.fn() };
-    const result = { openAtLogin: false, agentName: "claude", agents: [] };
+    const result = { openAtLogin: false, agentName: "gemini", agents: [] };
     const settings = {
       get: vi.fn(async () => result),
       setOpenAtLogin: vi.fn(async () => result),

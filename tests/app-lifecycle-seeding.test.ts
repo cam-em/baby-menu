@@ -67,16 +67,7 @@ vi.mock("../src/main/agent-runtime", () => ({
     this.setRegistryOverrides = vi.fn();
   }),
   commandExists: vi.fn(() => false),
-}));
-vi.mock("../src/main/agent-catalog-controller", () => ({
-  createAgentCatalogController: vi.fn(() => ({
-    load: vi.fn(async () => undefined),
-    overrides: {},
-    options: vi.fn(() => []),
-  })),
-}));
-vi.mock("../src/main/preferences", () => ({
-  createPreferencesService: vi.fn(() => ({ apply: vi.fn(async () => ({ openAtLogin: false })), get: vi.fn(async () => ({ openAtLogin: false })) })),
+  resolveDefaultAgentName: vi.fn(() => "gemini"),
 }));
 vi.mock("../src/main/server-action-registry", () => ({
   createServerActionRegistry: vi.fn(() => ({})),
@@ -180,5 +171,48 @@ describe("startBabyMenuApp with a symlinked extension workspace", () => {
     );
     // ...and the user-owned symlink was never replaced.
     await expect(lstat(extensionsDir).then((s) => s.isSymbolicLink())).resolves.toBe(true);
+  });
+
+  it.each(["gemini", "gpt"])("starts with the migrated environment-selected custom %s", async (name) => {
+    vi.stubEnv("BABY_MENU_AGENT", name);
+    try {
+      await writeFile(join(tempDirs[0], "agents.json"), JSON.stringify([{ name, launchCommand: "custom-acp" }]));
+      const { startBabyMenuApp } = await import("../src/main/app");
+      await startBabyMenuApp();
+      const { BabyMenuAgentRuntime } = await import("../src/main/agent-runtime");
+      expect(vi.mocked(BabyMenuAgentRuntime).mock.calls.at(-1)![1]).toMatchObject({
+        agentName: `custom-${name}`,
+        registryOverrides: { [`custom-${name}`]: "custom-acp" },
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it.each(["agents.json", "preferences.json"])("keeps the tray and feedback available when %s is invalid", async (invalidFile) => {
+    const root = tempDirs[0];
+    const catalog = invalidFile === "agents.json" ? "{" : JSON.stringify([{ name: "gemini", launchCommand: "custom-acp" }]);
+    const preferences = invalidFile === "preferences.json" ? "{" : JSON.stringify({ openAtLogin: false, agentName: "gemini" });
+    await writeFile(join(root, "agents.json"), catalog);
+    await writeFile(join(root, "preferences.json"), preferences);
+    const { startBabyMenuApp } = await import("../src/main/app");
+    await expect(startBabyMenuApp()).resolves.toBeUndefined();
+    expect(createBabyMenuTray).toHaveBeenCalled();
+    const { registerIpcHandlers } = await import("../src/main/ipc");
+    const settings = vi.mocked(registerIpcHandlers).mock.calls.at(-1)![5]!;
+    const state = await settings.get();
+    expect(state.agentSwitchDisabledReason).toContain("restart Baby Menu");
+    expect(state.agents.length).toBeGreaterThan(0);
+    expect(state.agents.every((agent) => !agent.available && agent.installHint === state.agentSwitchDisabledReason)).toBe(true);
+    await expect(settings.setAgent("gpt")).rejects.toThrow("Agent configuration is unavailable");
+    await expect(settings.addAgent({ name: "new-agent", command: "new-acp" })).rejects.toThrow("Agent configuration is unavailable");
+    await expect(settings.updateAgent("gemini", { command: "changed-acp" })).rejects.toThrow("Agent configuration is unavailable");
+    await expect(settings.removeAgent("gemini")).rejects.toThrow("Agent configuration is unavailable");
+    const { BabyMenuAgentRuntime } = await import("../src/main/agent-runtime");
+    expect(vi.mocked(BabyMenuAgentRuntime).mock.calls.at(-1)![1]).toMatchObject({ unavailableReason: state.agentSwitchDisabledReason });
+    if (invalidFile === "agents.json") await expect(settings.setOpenAtLogin(false)).resolves.toMatchObject({ openAtLogin: false });
+    expect(await readFile(join(root, "agents.json"), "utf8")).toBe(catalog);
+    expect(await readFile(join(root, "preferences.json"), "utf8")).toBe(invalidFile === "agents.json"
+      ? `${JSON.stringify({ openAtLogin: false, agentName: "gemini" }, null, 2)}\n` : preferences);
   });
 });

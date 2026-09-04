@@ -51,12 +51,12 @@ function installBabyMenuAgentMock({
       onVisibility: vi.fn(() => () => undefined),
     },
     settings: {
-      get: vi.fn(async () => ({ openAtLogin: false, agentName: "claude", agents: [] })),
-      setOpenAtLogin: vi.fn(async (openAtLogin: boolean) => ({ openAtLogin, agentName: "claude", agents: [] })),
+      get: vi.fn(async () => ({ openAtLogin: false, agentName: "gemini", agents: [] })),
+      setOpenAtLogin: vi.fn(async (openAtLogin: boolean) => ({ openAtLogin, agentName: "gemini", agents: [] })),
       setAgent: vi.fn(async (agentName: string) => ({ openAtLogin: false, agentName, agents: [] })),
-      addAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "claude", agents: [] })),
-      updateAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "claude", agents: [] })),
-      removeAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "claude", agents: [] })),
+      addAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "gemini", agents: [] })),
+      updateAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "gemini", agents: [] })),
+      removeAgent: vi.fn(async () => ({ openAtLogin: false, agentName: "gemini", agents: [] })),
     },
     app: {
       quit: vi.fn(async () => ({ ok: true })),
@@ -149,7 +149,7 @@ describe("AgentChat", () => {
     installBabyMenuAgentMock();
     window.babyMenu!.agent.send = vi.fn(async () => {
       throw new Error(
-        "Error invoking remote method 'baby-menu:agent:send': Error: AgentTurnFailedError: Codex CLI exited with code 127",
+        "Error invoking remote method 'baby-menu:agent:send': Error: AgentTurnFailedError: Antigravity CLI could not be started. Install `agy`, then restart Baby Menu.",
       );
     });
     render(<AgentChat />);
@@ -158,7 +158,7 @@ describe("AgentChat", () => {
     fireEvent.change(composer, { target: { value: "add a widget" } });
     fireEvent.submit(composer.closest("form")!);
 
-    expect(await screen.findByText("Codex CLI exited with code 127")).toBeTruthy();
+    expect(await screen.findByText("Antigravity CLI could not be started. Install `agy`, then restart Baby Menu.")).toBeTruthy();
     expect(screen.queryByText("No changes were made")).toBeNull();
     expect(screen.queryByText("the agent did not edit anything")).toBeNull();
   });
@@ -175,7 +175,7 @@ describe("AgentChat", () => {
       },
     });
     window.babyMenu!.agent.send = vi.fn(async () => {
-      throw new Error("Codex authentication failed. Sign in and try again.");
+      throw new Error("Gemini is not authenticated in Antigravity. Open Antigravity and sign in, then try again.");
     });
     render(<AgentChat />);
 
@@ -183,7 +183,7 @@ describe("AgentChat", () => {
     fireEvent.change(composer, { target: { value: "update the battery widget" } });
     fireEvent.submit(composer.closest("form")!);
 
-    expect(await screen.findByText("Codex authentication failed. Sign in and try again.")).toBeTruthy();
+    expect(await screen.findByText("Gemini is not authenticated in Antigravity. Open Antigravity and sign in, then try again.")).toBeTruthy();
     expect(screen.getByText("Updated the battery extension")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Keep" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Undo" })).toBeTruthy();
