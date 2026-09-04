@@ -25,7 +25,7 @@ For the at-a-glance picture, see the "How It Works" diagram in the [README](../R
 
 Recipes for live or system data are also verification contracts.
 They tell the agent to inspect the actual named source before writing parser or renderer code, avoid guessed field names and response shapes, and verify the finished server action or widget against that same live source before reporting done.
-The current model-family trackers are Gemini through Antigravity and GPT through Codex. Additional bundled quota recipes cover Claude Code, Cursor, GitHub Copilot, and Grok.
+See the [README](../README.md#how-it-works) for the product overview and `extensions/recipes/` for available recipes.
 Provider-specific acquisition and refresh contracts live in the matching recipe.
 
 **Background vs view refresh.**
@@ -39,7 +39,7 @@ An unchanged `server.ts` module instance stays alive across invokes and backgrou
 
 - **Bundled ACP adapters.**
   Built-in Gemini and GPT launch `out/adapters/antigravity/index.mjs` and `out/adapters/codex/index.mjs`, wrapping the authenticated `agy` and `codex` CLIs in the exact active extension workspace.
-  Antigravity uses a temporary agent definition that opts out of ambient user customizations and MCP servers, enables its verified autonomous permission mode, starts a clean project with slash expansion disabled, grants no additional directory, and resumes the captured conversation id. Codex ignores user configuration and rules, while reusing only the top-level `model` from `$CODEX_HOME/config.toml` (or `~/.codex/config.toml`) so the clean-room launch does not force an unsupported default.
+  Provider-specific isolation and model selection are documented in [configuration](configuration.md#provider-specific-clean-room-behavior).
 - **Terminal failure semantics.**
   CLI, authentication, rate-limit, and provider failures reject through ACP with typed, bounded messages; raw provider payloads are never streamed or logged as user-facing errors.
   Baby Menu also treats a completed ACP refusal as a failed editing turn, records failed diagnostics and telemetry, and strips nested transport error wrappers before displaying the safe message.

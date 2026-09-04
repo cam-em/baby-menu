@@ -30,7 +30,7 @@ If the failed turn edited files before stopping, Baby Menu keeps those partial c
 
 The Antigravity adapter uses a temporary agent definition that opts out of ambient user customizations and MCP servers. It creates a fresh project at the exact extension workspace, disables slash-command expansion, grants no extra directory, suppresses account decoration and provider logs, and resumes the captured conversation id on later turns.
 
-The Codex adapter reads only the top-level `model` from `$CODEX_HOME/config.toml` or `~/.codex/config.toml` and passes it as `--model`, because it otherwise runs Codex with `--ignore-user-config`.
+The Codex adapter ignores user configuration and rules. It reads only the top-level `model` from `$CODEX_HOME/config.toml` or `~/.codex/config.toml` and passes it as `--model`, because it otherwise runs Codex with `--ignore-user-config`.
 
 ## Custom ACP agents
 
@@ -38,7 +38,7 @@ Add agents from Settings (id, optional label, ACP launch command) or by editing 
 Packaged mode reads `~/.baby-menu/agents.json`; source mode reads `agents.json` at the repo root.
 Settings-added agents are editable and removable; built-in Gemini and GPT stay read-only.
 
-Each custom entry is an object with `name`, optional `label`, `command`, `installHint`, and `launchCommand`. Built-in names cannot be overridden.
+Each custom entry requires `name`; `label`, `command`, `installHint`, and `launchCommand` are optional. `command` controls availability probing and defaults to the id. `launchCommand` controls execution; without it, execution uses `registryCommand` when present, otherwise acpx resolves the agent id. Migration may retain that original resolution in `registryCommand`. Built-in names cannot be overridden.
 Entries with `launchCommand` register as custom [`acpx`](https://github.com/openclaw/acpx) overrides and show as available.
 
 ```json
@@ -62,6 +62,16 @@ Examples:
 | GitHub Copilot | `copilot --acp --stdio` |
 | Qwen Code | `qwen --acp` |
 | OpenCode | `npx -y opencode-ai acp` |
+
+### Existing selections and configuration recovery
+
+On upgrade, historical built-in selections `claude` and `codex` become `gemini` and `gpt`, unless the original id names a current custom agent. Custom entries colliding with the new built-in ids are renamed to `custom-gemini` or `custom-gpt`, with a numeric suffix starting at `-2` if needed. Their labels, launch commands, availability probes, and original acpx command resolution are preserved.
+
+Saved selections are resolved against the original catalog before renaming. If there is no saved selection, an environment-selected colliding custom agent is saved under its migrated id so subsequent launches keep selecting it.
+
+Migration requires readable, valid catalog and preferences files; absent files use defaults. A temporary `agent-selection-migration.json` beside `preferences.json` stores only a version and target agent id so interrupted writes can converge on restart. It is removed after the catalog and selection converge. Configuration writes preserve existing symlinks and atomically replace their targets. See [migration recovery tests](../tests/agent-migration-recovery.test.ts) for recovery coverage.
+
+If configuration cannot be loaded or migration cannot finish, the tray and widgets remain available, while agent turns, switching, and custom-agent editing are disabled. Check `agents.json` and `preferences.json` for valid JSON and read/write permissions, then restart Baby Menu. Existing configuration and pending recovery state are retained rather than replaced with defaults.
 
 ## Updates
 

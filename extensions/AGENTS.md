@@ -53,8 +53,7 @@ When you need current details about a dependency, CLI, local credential layout, 
 ## Recipes
 
 Common recipes live in `recipes/*.html` inside this extension workspace.
-Bundled quota recipes cover Gemini through Antigravity, GPT through Codex, Claude Code, Cursor, GitHub Copilot, and Grok.
-The Gemini recipe uses only Antigravity's structured `/usage` command and never reads credentials or infers windows. Cursor, GitHub Copilot, and Grok recipes likewise avoid `quota-axi` or similar helper CLIs; follow each recipe as the authoritative provider-owned acquisition contract.
+Discover available providers in `recipes/`; each recipe owns its acquisition, credential-refresh, and quota-helper constraints.
 Read the matching recipe before implementing a widget that's relevant.
 Recipes are self-contained specs for the embedded agent and should be treated as technical reference.
 
