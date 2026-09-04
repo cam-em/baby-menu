@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,13 +17,14 @@ describe("agent-catalog-controller", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  function create(overrides: { active?: string; onChange?: (o: Record<string, string>) => void } = {}) {
+  function create(overrides: { active?: string; onChange?: (o: Record<string, string>) => void; onMigrated?: (r: Record<string, string>) => void } = {}) {
     return createAgentCatalogController({
       agentsJsonPath,
       resolveAdapterPath: (adapter) => `/o/${adapter}.js`,
       adapterLauncher: ["node"],
       commandExists: () => true,
       getActiveAgentName: () => overrides.active ?? "gemini",
+      onAgentNamesMigrated: overrides.onMigrated,
       onOverridesChange: overrides.onChange,
     });
   }
@@ -68,6 +69,18 @@ describe("agent-catalog-controller", () => {
 
     const second = await create().load();
     expect(second.options().map((o) => o.name)).toEqual(["gemini", "gpt", "rovo"]);
+  });
+
+  it("persists colliding custom ids and reports saved-reference migrations", async () => {
+    await writeFile(agentsJsonPath, JSON.stringify([
+      { name: "gemini", label: "Custom Gemini", launchCommand: "custom-gemini-acp" },
+      { name: "custom-gemini", launchCommand: "existing-acp" },
+    ]));
+    const onMigrated = vi.fn();
+    const controller = await create({ onMigrated }).load();
+    expect(controller.options().map((option) => option.name)).toEqual(["gemini", "gpt", "custom-gemini-2", "custom-gemini"]);
+    expect(onMigrated).toHaveBeenCalledWith({ gemini: "custom-gemini-2" });
+    expect((await readJson()).map((agent) => agent.name)).toEqual(["custom-gemini-2", "custom-gemini"]);
   });
 
   it("rejects adding a name that collides with a built-in", async () => {

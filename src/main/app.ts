@@ -201,6 +201,13 @@ export async function startBabyMenuApp(): Promise<void> {
     adapterLauncher,
     commandExists,
     getActiveAgentName: () => agentRuntime.currentAgent,
+    onAgentNamesMigrated: async (renamed) => {
+      const selected = persistedPreferences.agentName;
+      if (selected && renamed[selected]) {
+        persistedPreferences.agentName = renamed[selected];
+        await preferences.setAgent(renamed[selected]);
+      }
+    },
     onOverridesChange: (overrides) => agentRuntime.setRegistryOverrides(overrides),
   });
   await agentCatalog.load();

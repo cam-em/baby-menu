@@ -10,6 +10,7 @@ import {
   withAdapterLaunchCommands,
   loadAgentConfigFile,
   parseAgentDefinitions,
+  migrateCollidingCustomAgentNames,
 } from "../src/main/agent-catalog";
 
 describe("agent-catalog", () => {
@@ -46,6 +47,18 @@ describe("agent-catalog", () => {
   it("parseAgentDefinitions normalizes entries and defaults command to name", () => {
     const defs = parseAgentDefinitions([{ name: "pi", launchCommand: "npx pi-acp" }, { bad: true }]);
     expect(defs).toEqual([{ name: "pi", label: "pi", command: "pi", installHint: undefined, launchCommand: "npx pi-acp" }]);
+  });
+
+  it("deterministically migrates custom ids that became built-in names", () => {
+    const migration = migrateCollidingCustomAgentNames([
+      { name: "gemini", label: "Old Gemini", command: "gemini", launchCommand: "gemini-acp" },
+      { name: "custom-gemini", label: "Existing", command: "existing" },
+      { name: "gpt", label: "Old GPT", command: "gpt-acp", launchCommand: "gpt-acp" },
+    ]);
+    expect(migration.renamed).toEqual({ gemini: "custom-gemini-2", gpt: "custom-gpt" });
+    expect(migration.definitions.map((agent) => agent.name)).toEqual(["custom-gemini-2", "custom-gemini", "custom-gpt"]);
+    expect(migration.definitions[0]?.command).toBe("custom-gemini-2");
+    expect(migration.definitions[2]?.command).toBe("gpt-acp");
   });
 
   it("injects a bundled adapter launchCommand for built-in adapter agents", () => {

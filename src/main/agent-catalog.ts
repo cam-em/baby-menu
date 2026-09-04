@@ -50,6 +50,32 @@ export const DEFAULT_AGENTS: readonly AgentDefinition[] = [
 /** Names of the code-defined built-in agents; these are read-only in the UI. */
 export const BUILT_IN_AGENT_NAMES: ReadonlySet<string> = new Set(DEFAULT_AGENTS.map((agent) => agent.name));
 
+export function normalizeLegacyBuiltInAgentName(name: string): string {
+  const normalized = name.trim();
+  return normalized === "claude" ? "gemini" : normalized === "codex" ? "gpt" : normalized;
+}
+
+export function migrateCollidingCustomAgentNames(
+  definitions: readonly AgentDefinition[],
+  builtIns: readonly AgentDefinition[] = DEFAULT_AGENTS,
+): { definitions: AgentDefinition[]; renamed: Record<string, string> } {
+  const reserved = new Set(builtIns.map((agent) => agent.name.toLowerCase()));
+  const occupied = new Set(definitions.map((agent) => agent.name.toLowerCase()));
+  const renamed: Record<string, string> = {};
+  const migrated = definitions.map((definition) => {
+    if (!reserved.has(definition.name.toLowerCase())) return { ...definition };
+    const base = `custom-${definition.name.toLowerCase()}`;
+    let name = base;
+    for (let suffix = 2; occupied.has(name.toLowerCase()) || reserved.has(name.toLowerCase()); suffix += 1) {
+      name = `${base}-${suffix}`;
+    }
+    occupied.add(name.toLowerCase());
+    renamed[definition.name] = name;
+    return { ...definition, name, command: definition.command === definition.name ? name : definition.command };
+  });
+  return { definitions: migrated, renamed };
+}
+
 /** A custom agent id is a slug: starts alphanumeric, then letters/digits/._- */
 const CUSTOM_AGENT_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]*$/i;
 

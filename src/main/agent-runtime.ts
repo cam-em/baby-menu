@@ -13,7 +13,7 @@ import {
 } from "acpx/runtime";
 import type { AgentActiveTurn, AgentChatResult, GitActionResult, GitSessionSnapshot, WorkspaceChange } from "../shared/contracts";
 import type { AgentRuntimeStatus } from "../shared/contracts";
-import { BUILT_IN_AGENT_NAMES, type AgentDefinition, resolveAgentCatalog } from "./agent-catalog";
+import { BUILT_IN_AGENT_NAMES, type AgentDefinition, normalizeLegacyBuiltInAgentName, resolveAgentCatalog } from "./agent-catalog";
 import { getAgentStateDir, getDevExtensionSnapshotDir, getExtensionsDir } from "../shared/paths";
 import { AgentTurnLogRecorder } from "./agent-turn-log";
 import { DevExtensionChangeSession } from "./dev-extension-change-session";
@@ -136,7 +136,7 @@ export function commandExists(command: string): boolean {
 
 export function resolveDefaultAgentName(options: ResolveDefaultAgentNameOptions = {}): string | null {
   const configuredAgent = options.env?.BABY_MENU_AGENT ?? process.env.BABY_MENU_AGENT;
-  if (configuredAgent?.trim()) return configuredAgent.trim();
+  if (configuredAgent?.trim()) return normalizeLegacyBuiltInAgentName(configuredAgent);
 
   const catalog = options.catalog ?? resolveAgentCatalog();
   if (catalog.length === 0) return null;

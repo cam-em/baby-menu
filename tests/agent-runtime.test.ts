@@ -64,6 +64,13 @@ describe("agent runtime defaults", () => {
     ).toBe("mock-target");
   });
 
+  it.each([["claude", "gemini"], ["codex", "gpt"]])(
+    "migrates legacy BABY_MENU_AGENT=%s to %s",
+    (legacy, expected) => {
+      expect(resolveDefaultAgentName({ env: { BABY_MENU_AGENT: legacy } })).toBe(expected);
+    },
+  );
+
   it("prefers Gemini through Antigravity before GPT through Codex", () => {
     expect(
       resolveDefaultAgentName({

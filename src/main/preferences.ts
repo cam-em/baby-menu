@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { normalizeLegacyBuiltInAgentName } from "./agent-catalog";
 
 export type BabyMenuPreferences = {
   openAtLogin: boolean;
@@ -37,7 +38,7 @@ export function createPreferencesService({
     const savedAgentName = preferences.agentName?.trim();
     // Releases before Gemini/GPT used provider CLI names as built-in ids.
     // Migrate only those retired reserved ids; all other custom ids survive.
-    const agentName = savedAgentName === "claude" ? "gemini" : savedAgentName === "codex" ? "gpt" : savedAgentName;
+    const agentName = savedAgentName ? normalizeLegacyBuiltInAgentName(savedAgentName) : undefined;
     return {
       openAtLogin: allowOpenAtLogin && preferences.openAtLogin,
       ...(agentName ? { agentName } : {}),
