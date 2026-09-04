@@ -71,7 +71,7 @@ export function migrateCollidingCustomAgentNames(
     }
     occupied.add(name.toLowerCase());
     renamed[definition.name] = name;
-    return { ...definition, name, command: definition.command === definition.name ? name : definition.command };
+    return { ...definition, name };
   });
   return { definitions: migrated, renamed };
 }

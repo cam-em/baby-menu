@@ -57,8 +57,31 @@ describe("agent-catalog", () => {
     ]);
     expect(migration.renamed).toEqual({ gemini: "custom-gemini-2", gpt: "custom-gpt" });
     expect(migration.definitions.map((agent) => agent.name)).toEqual(["custom-gemini-2", "custom-gemini", "custom-gpt"]);
-    expect(migration.definitions[0]?.command).toBe("custom-gemini-2");
+    expect(migration.definitions[0]?.command).toBe("gemini");
     expect(migration.definitions[2]?.command).toBe("gpt-acp");
+  });
+
+  it("preserves execution fields and availability when migrating custom ids", () => {
+    const definitions = [
+      { name: "gemini", label: "Custom Gemini", command: "gemini", installHint: "Install Gemini" },
+      { name: "gpt", label: "Custom GPT", command: "gpt", launchCommand: 'gpt-acp --profile "custom profile"  --stdio' },
+    ];
+    const migration = migrateCollidingCustomAgentNames(definitions);
+
+    expect(migration.definitions).toEqual([
+      { ...definitions[0], name: "custom-gemini" },
+      { ...definitions[1], name: "custom-gpt" },
+    ]);
+    const probes: string[] = [];
+    const options = toAgentOptions(migration.definitions, (command) => {
+      probes.push(command);
+      return command === "gemini";
+    });
+    expect(probes).toEqual(["gemini"]);
+    expect(options.map((option) => option.available)).toEqual([true, true]);
+    expect(agentRegistryOverrides(migration.definitions)).toEqual({
+      "custom-gpt": definitions[1]!.launchCommand,
+    });
   });
 
   it("injects a bundled adapter launchCommand for built-in adapter agents", () => {
