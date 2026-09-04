@@ -2,6 +2,7 @@
 // Minimal fake of `agy --output-format stream-json --print=<prompt>`.
 // Special SLOW_* prompts control deterministic cancellation tests.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { parse } from "yaml";
 
 const emit = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
 const argv = process.argv.slice(2);
@@ -19,7 +20,12 @@ if (process.env.FAKE_AGY_CLEAN_ROOM_FILE) {
   const agentIndex = argv.indexOf("--agent");
   const agentPath = agentIndex >= 0 ? argv[agentIndex + 1] : null;
   const agent = agentPath && existsSync(agentPath) ? readFileSync(agentPath, "utf8") : "";
-  const cleanRoom = agent.includes("inheritCustomizations: false") && agent.includes("inheritMcp: false");
+  let cleanRoom = false;
+  try {
+    const frontmatter = agent.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+    const config = frontmatter ? parse(frontmatter[1]) : null;
+    cleanRoom = config?.inheritCustomizations === false && config?.inheritMcp === false;
+  } catch {}
   writeFileSync(process.env.FAKE_AGY_CLEAN_ROOM_FILE, String(cleanRoom));
 }
 

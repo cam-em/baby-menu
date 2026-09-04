@@ -17,7 +17,7 @@ export type PreferencesService = {
   get: () => Promise<BabyMenuPreferences>;
   setOpenAtLogin: (openAtLogin: boolean) => Promise<BabyMenuPreferences>;
   setAgent: (agentName: string) => Promise<BabyMenuPreferences>;
-  migrateAgentSelection: (renamed: Record<string, string>, customNames: readonly string[]) => Promise<BabyMenuPreferences>;
+  migrateAgentSelection: (renamed: Record<string, string>, customNames: readonly string[], environmentAgentName?: string) => Promise<BabyMenuPreferences>;
   completeAgentSelectionMigration: () => Promise<void>;
   apply: () => Promise<BabyMenuPreferences>;
 };
@@ -103,17 +103,17 @@ export function createPreferencesService({
 
   return {
     get: readPreferences,
-    async migrateAgentSelection(renamed, customNames) {
+    async migrateAgentSelection(renamed, customNames, environmentAgentName) {
       const pending = await pendingAgentSelection();
       const current = await readPreferences();
       if (pending) {
         return current.agentName === pending ? current : writePreferences({ ...current, agentName: pending });
       }
-      if (!current.agentName) return current;
-      const agentName = Object.hasOwn(renamed, current.agentName)
-        ? renamed[current.agentName]
-        : normalizeLegacyBuiltInAgentName(current.agentName, customNames);
-      if (agentName === current.agentName) return current;
+      const selected = current.agentName ?? environmentAgentName?.trim();
+      if (!selected) return current;
+      const customRenamed = Object.hasOwn(renamed, selected);
+      const agentName = customRenamed ? renamed[selected] : normalizeLegacyBuiltInAgentName(selected, customNames);
+      if (agentName === selected || (!current.agentName && !customRenamed)) return current;
       await writeJsonFile(migrationPath, { version: 1, agentName });
       return writePreferences({ ...current, agentName });
     },

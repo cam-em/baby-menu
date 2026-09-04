@@ -23,6 +23,7 @@ describe("agent-catalog-controller", () => {
     active?: string;
     onChange?: (o: Record<string, string>) => void;
     preferences?: PreferencesService;
+    environmentAgentName?: string;
   } = {}) {
     return createAgentCatalogController({
       agentsJsonPath,
@@ -31,6 +32,7 @@ describe("agent-catalog-controller", () => {
       commandExists: () => true,
       getActiveAgentName: () => overrides.active ?? "gemini",
       preferences: overrides.preferences,
+      environmentAgentName: overrides.environmentAgentName,
       onOverridesChange: overrides.onChange,
     });
   }
@@ -143,6 +145,30 @@ describe("agent-catalog-controller", () => {
   it("rejects adding a name that collides with a built-in", async () => {
     const controller = await create().load();
     await expect(controller.addAgent({ name: "gemini", command: "x" })).rejects.toThrow(/built-in/i);
+  });
+
+  it.each(["gemini", "gpt"])("preserves an environment-selected custom %s across restarts", async (name) => {
+    await writeFile(agentsJsonPath, JSON.stringify([{ name, launchCommand: "custom-acp --stdio" }]));
+    for (let restart = 0; restart < 2; restart += 1) {
+      const preferences = createPreferencesService({ userDataDir: dir, app: { setLoginItemSettings: vi.fn() } });
+      const catalog = await create({ preferences, environmentAgentName: ` ${name} ` }).load();
+      expect((await preferences.get()).agentName).toBe(`custom-${name}`);
+      expect(catalog.overrides[`custom-${name}`]).toBe("custom-acp --stdio");
+    }
+  });
+
+  it("keeps saved selection precedence over a colliding environment selection", async () => {
+    await writeFile(agentsJsonPath, JSON.stringify([{ name: "gemini", launchCommand: "custom-acp" }]));
+    const preferences = createPreferencesService({ userDataDir: dir, app: { setLoginItemSettings: vi.fn() } });
+    await preferences.setAgent("gpt");
+    await create({ preferences, environmentAgentName: "gemini" }).load();
+    expect((await preferences.get()).agentName).toBe("gpt");
+  });
+
+  it("does not pin an unchanged environment fallback as a saved preference", async () => {
+    const preferences = createPreferencesService({ userDataDir: dir, app: { setLoginItemSettings: vi.fn() } });
+    await create({ preferences, environmentAgentName: "gemini" }).load();
+    expect((await preferences.get()).agentName).toBeUndefined();
   });
 
   it("updates an existing custom agent's command", async () => {

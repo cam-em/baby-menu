@@ -93,11 +93,13 @@ describe("recoverable catalog and selection migration", () => {
   });
 
   it.each([
-    ["claude", "gemini", "gemini"],
-    ["codex", "gpt", "gpt"],
-    ["gemini", "gemini", "custom-gemini"],
-    ["gpt", "gpt", "custom-gpt"],
-  ])("retains saved %s with custom %s as %s at every write boundary", async (saved, custom, expected) => {
+    ["claude", "gemini", "gemini", "preferences"],
+    ["codex", "gpt", "gpt", "preferences"],
+    ["gemini", "gemini", "custom-gemini", "preferences"],
+    ["gpt", "gpt", "custom-gpt", "preferences"],
+    ["gemini", "gemini", "custom-gemini", "environment"],
+    ["gpt", "gpt", "custom-gpt", "environment"],
+  ])("retains %s with custom %s as %s from %s at every write boundary", async (saved, custom, expected, source) => {
     const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
     for (const boundary of ["journal", "preferences", "catalog", "retirement"]) {
       const directory = await mkdtemp(join(tmpdir(), "baby-menu-migration-"));
@@ -107,12 +109,13 @@ describe("recoverable catalog and selection migration", () => {
       const journalPath = join(directory, "agent-selection-migration.json");
       const original = { name: custom, label: "Custom", command: custom, launchCommand: "custom-acp --stdio" };
       await writeFile(catalogPath, JSON.stringify([original]));
-      await writeFile(preferencesPath, JSON.stringify({ openAtLogin: false, agentName: saved }));
+      await writeFile(preferencesPath, JSON.stringify({ openAtLogin: false, agentName: source === "preferences" ? saved : undefined }));
       const create = () => {
         const preferences = createPreferencesService({ userDataDir: directory, app: { setLoginItemSettings: vi.fn() } });
         const controller = createAgentCatalogController({
           agentsJsonPath: catalogPath,
           preferences,
+          environmentAgentName: source === "environment" ? saved : undefined,
           resolveAdapterPath: (adapter) => `${adapter}.mjs`,
           adapterLauncher: ["node"],
           commandExists: () => true,
@@ -133,7 +136,7 @@ describe("recoverable catalog and selection migration", () => {
 
       await expect(create().controller.load()).rejects.toBe(failure);
       if (boundary === "journal") {
-        expect(JSON.parse(await readFile(preferencesPath, "utf8")).agentName).toBe(saved);
+        expect(JSON.parse(await readFile(preferencesPath, "utf8")).agentName).toBe(source === "preferences" ? saved : undefined);
         expect(JSON.parse(await readFile(catalogPath, "utf8"))).toEqual([original]);
       } else {
         expect(JSON.parse(await readFile(journalPath, "utf8"))).toEqual({ version: 1, agentName: expected });

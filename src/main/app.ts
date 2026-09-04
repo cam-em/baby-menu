@@ -200,6 +200,7 @@ export async function startBabyMenuApp(): Promise<void> {
     adapterLauncher,
     commandExists,
     getActiveAgentName: () => agentRuntime.currentAgent,
+    environmentAgentName: process.env.BABY_MENU_AGENT,
     preferences,
     onOverridesChange: (overrides) => agentRuntime.setRegistryOverrides(overrides),
   });

@@ -25,6 +25,7 @@ export type AgentCatalogControllerOptions = {
   commandExists: (command: string) => boolean;
   /** The currently selected agent name; removal of the active agent is refused. */
   getActiveAgentName: () => string;
+  environmentAgentName?: string;
   preferences?: Pick<PreferencesService, "migrateAgentSelection" | "completeAgentSelectionMigration">;
   /** Called whenever the registry overrides change so the runtime can pick them up live. */
   onOverridesChange?: (overrides: Record<string, string>) => void | Promise<void>;
@@ -86,7 +87,9 @@ export function createAgentCatalogController(options: AgentCatalogControllerOpti
         const loaded = parseAgentDefinitions(await loadAgentConfigFile(options.agentsJsonPath));
         const migration = migrateCollidingCustomAgentNames(loaded);
         customs = migration.definitions;
-        await options.preferences?.migrateAgentSelection(migration.renamed, loaded.map((agent) => agent.name));
+        await options.preferences?.migrateAgentSelection(
+          migration.renamed, loaded.map((agent) => agent.name), options.environmentAgentName,
+        );
         if (Object.keys(migration.renamed).length > 0) {
           await persist();
         }

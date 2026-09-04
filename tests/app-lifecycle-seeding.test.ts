@@ -173,6 +173,22 @@ describe("startBabyMenuApp with a symlinked extension workspace", () => {
     await expect(lstat(extensionsDir).then((s) => s.isSymbolicLink())).resolves.toBe(true);
   });
 
+  it.each(["gemini", "gpt"])("starts with the migrated environment-selected custom %s", async (name) => {
+    vi.stubEnv("BABY_MENU_AGENT", name);
+    try {
+      await writeFile(join(tempDirs[0], "agents.json"), JSON.stringify([{ name, launchCommand: "custom-acp" }]));
+      const { startBabyMenuApp } = await import("../src/main/app");
+      await startBabyMenuApp();
+      const { BabyMenuAgentRuntime } = await import("../src/main/agent-runtime");
+      expect(vi.mocked(BabyMenuAgentRuntime).mock.calls.at(-1)![1]).toMatchObject({
+        agentName: `custom-${name}`,
+        registryOverrides: { [`custom-${name}`]: "custom-acp" },
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it.each(["agents.json", "preferences.json"])("keeps the tray and feedback available when %s is invalid", async (invalidFile) => {
     const root = tempDirs[0];
     const catalog = invalidFile === "agents.json" ? "{" : JSON.stringify([{ name: "gemini", launchCommand: "custom-acp" }]);
