@@ -31,6 +31,7 @@ function prepareDevExtensions({ rootDir, devExtensionsDir, mkdirSyncFn, copyFile
   copyFileSyncFn(join(rootDir, "extensions", "AGENTS.md"), join(devExtensionsDir, "AGENTS.md"));
   copyFileSyncFn(join(rootDir, "extensions", "babymenu-env.d.ts"), join(devExtensionsDir, "babymenu-env.d.ts"));
   cpSyncFn(join(rootDir, "extensions", "recipes"), join(devExtensionsDir, "recipes"), { recursive: true });
+  cpSyncFn(join(rootDir, "extensions", "zai-quota"), join(devExtensionsDir, "zai-quota"), { recursive: true });
 }
 
 export function runDev({

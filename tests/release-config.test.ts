@@ -148,6 +148,7 @@ describe("distribution config", () => {
     expect(config).toContain("to: extensions-template");
     expect(config).toContain("babymenu-env.d.ts");
     expect(config).toContain("hello-world/**");
+    expect(config).toContain("zai-quota/**");
     expect(config).toContain("to: tray");
     expect(config).toContain("baby_menuTemplate*.png");
     expect(config).not.toContain("identity: null");

@@ -95,6 +95,7 @@ function validLimits(): unknown[] {
       usageDetails: [
         { modelCode: "glm-5", usage: 80, providerPrivateMarker: "raw-detail-private" },
         { modelCode: "glm-4.7", usage: "45" },
+        { modelCode: "glm-5.3", usage: 120 },
       ],
       accountEmail: "private@example.invalid",
     },
@@ -211,6 +212,7 @@ describe("clean generated Z.ai quota installation", () => {
             usageDetails: [
               { modelCode: "glm-5", usage: 80 },
               { modelCode: "glm-4.7", usage: "45" },
+              { modelCode: "glm-5.3", usage: 120 },
             ],
           },
           {
