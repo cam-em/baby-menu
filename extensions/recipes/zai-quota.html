@@ -253,7 +253,7 @@ type ZaiQuotaViewState =
           <li>The implementation is an active installed <code>zai-quota</code> extension in Baby Menu.</li>
           <li>The server action uses only the exact GET, fixed endpoint, required bearer header, no body, no redirect, a timeout, and a response cap.</li>
           <li>Credential resolution uses only the explicit Z.ai environment variable or the dedicated Baby Menu Keychain item and never reads Pi/browser state.</li>
-          <li>Tests execute the generated server action and cover valid unit 3/6 windows, missing optional fields, malformed fields/envelopes, reset parsing, missing credential, HTTP 401/403, HTTP 429, HTTP 5xx, unavailable/network outcomes, same-credential stale cache, and credential-change cache rejection.</li>
+          <li>Tests execute the server action and cover valid unit 3/6 windows, missing optional fields, malformed fields/envelopes, reset parsing, missing credential, HTTP 401/403, HTTP 429, HTTP 5xx, unavailable/network outcomes, same-credential stale cache, and credential-change cache rejection.</li>
           <li>Behavioral request tests prove there is no query, body, cookie, browser header, guessed organization header, or project/personal content.</li>
           <li>Boundary tests prove secrets, unknown account fields, raw provider fields, raw failures, and raw responses do not appear in results, logs, the DOM, or durable SQLite state.</li>
           <li>Loading, updating, fresh, stale, authentication-required, rate-limit, service-error, malformed-response, and unavailable states remain distinct and never replace missing data with zero or a fabricated reset.</li>
