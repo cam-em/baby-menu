@@ -63,12 +63,8 @@ Examples:
 
 ## Z.ai GLM quota extension
 
-Z.ai quota support is delivered through a bundled recipe that creates a user-owned extension, not through a provider-specific default widget.
-Configure the endpoint-verified `ZAI_CODING_CN_API_KEY` in Baby Menu's actual launch environment and restart the app, then ask the composer:
-
-```text
-add a Z.ai GLM quota widget using the bundled Z.ai quota recipe
-```
+Z.ai GLM quota support is bundled as an active installed extension in Baby Menu.
+Configure the endpoint-verified `ZAI_CODING_CN_API_KEY` in Baby Menu's actual launch environment or the dedicated Keychain item and restart the app.
 
 A normal GUI launch may not inherit shell-only exports.
 On macOS, you can instead copy the API key into a dedicated Baby Menu Keychain item without putting it in a command argument or shell history:
@@ -81,7 +77,7 @@ On macOS, you can instead copy the API key into a dedicated Baby Menu Keychain i
 ```
 
 The final `-w` prompts securely.
-The generated extension reads only those explicit sources from its server action; it does not inspect Pi auth files, browser cookies, localStorage, or browser sessions.
+The extension reads only those explicit sources from its server action; it does not inspect Pi auth files, browser cookies, localStorage, or browser sessions.
 Its quota request sends no project or personal content.
 
 ## Updates

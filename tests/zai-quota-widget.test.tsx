@@ -5,7 +5,6 @@ import type { BabyMenuApi } from "../src/shared/contracts";
 import {
   formatGlmModelLabel,
   formatResetCountdown,
-  getModelUsageBreakdown,
   resetZaiQuotaStoreForTests,
   type ZaiQuotaFailure,
   type ZaiQuotaResult,
@@ -258,23 +257,6 @@ describe("installed Z.ai quota widget", () => {
       expect(formatResetCountdown(new Date(now + (2 * 86400 + 4 * 3600) * 1000).toISOString(), now)).toBe("2d 4h");
       // Days exact
       expect(formatResetCountdown(new Date(now + 5 * 86400 * 1000).toISOString(), now)).toBe("5d");
-    });
-
-    it("extracts model usage breakdown with formatted labels", () => {
-      const window = {
-        id: "CREDIT_LIMIT:3",
-        type: "CREDIT_LIMIT",
-        unit: 3,
-        usageDetails: [
-          { modelCode: "glm-5.3", usage: 100 },
-          { modelCode: "glm-4.7", usage: 50 },
-        ],
-      };
-      const breakdown = getModelUsageBreakdown(window);
-      expect(breakdown).toEqual([
-        { modelCode: "glm-5.3", label: "GLM-5.3", usage: 100 },
-        { modelCode: "glm-4.7", label: "GLM-4.7", usage: 50 },
-      ]);
     });
   });
 });

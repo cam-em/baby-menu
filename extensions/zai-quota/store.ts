@@ -2,12 +2,6 @@ import { useSyncExternalStore } from "react";
 
 export type SafeQuotaValue = number | string;
 
-export type ZaiModelUsageDetail = {
-  modelCode: string;
-  label: string;
-  usage?: SafeQuotaValue;
-};
-
 export type ZaiQuotaWindow = {
   id: string;
   label?: "5-hour" | "Weekly";
@@ -108,21 +102,6 @@ export function formatResetCountdown(resetAt: string | undefined, nowMs: number 
     return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
   }
   return `${Math.max(1, minutes)}m`;
-}
-
-export function getModelUsageBreakdown(window: ZaiQuotaWindow): ZaiModelUsageDetail[] {
-  if (!window.usageDetails || window.usageDetails.length === 0) return [];
-  const result: ZaiModelUsageDetail[] = [];
-  for (const detail of window.usageDetails) {
-    if (detail.modelCode) {
-      result.push({
-        modelCode: detail.modelCode,
-        label: formatGlmModelLabel(detail.modelCode),
-        usage: detail.usage,
-      });
-    }
-  }
-  return result;
 }
 
 export async function refreshZaiQuota(): Promise<void> {

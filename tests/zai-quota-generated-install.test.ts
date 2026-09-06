@@ -66,10 +66,10 @@ type InstalledFixture = {
   registry: ServerActionRegistry;
 };
 
-const serverFixtureUrl = new URL("./fixtures/zai-quota-generated/server.ts.fixture", import.meta.url);
-const widgetFixtureUrl = new URL("./fixtures/zai-quota-generated/widget.tsx", import.meta.url);
-const componentsFixtureUrl = new URL("./fixtures/zai-quota-generated/components.tsx", import.meta.url);
-const storeFixtureUrl = new URL("./fixtures/zai-quota-generated/store.ts", import.meta.url);
+const serverSourceUrl = new URL("../extensions/zai-quota/server.ts", import.meta.url);
+const widgetSourceUrl = new URL("../extensions/zai-quota/widget.tsx", import.meta.url);
+const componentsSourceUrl = new URL("../extensions/zai-quota/components.tsx", import.meta.url);
+const storeSourceUrl = new URL("../extensions/zai-quota/store.ts", import.meta.url);
 const originalEnv = { ...process.env };
 
 function quotaResponse(limits: unknown[], options: { status?: number; headers?: HeadersInit; extras?: object } = {}): Response {
@@ -137,10 +137,10 @@ describe("clean generated Z.ai quota installation", () => {
     const extensionDir = join(rootDir, "extensions", "zai-quota");
     await mkdir(extensionDir, { recursive: true });
     await Promise.all([
-      copyFile(serverFixtureUrl, join(extensionDir, "server.ts")),
-      copyFile(widgetFixtureUrl, join(extensionDir, "widget.tsx")),
-      copyFile(componentsFixtureUrl, join(extensionDir, "components.tsx")),
-      copyFile(storeFixtureUrl, join(extensionDir, "store.ts")),
+      copyFile(serverSourceUrl, join(extensionDir, "server.ts")),
+      copyFile(widgetSourceUrl, join(extensionDir, "widget.tsx")),
+      copyFile(componentsSourceUrl, join(extensionDir, "components.tsx")),
+      copyFile(storeSourceUrl, join(extensionDir, "store.ts")),
     ]);
 
     if (options.credential === undefined) delete process.env.ZAI_CODING_CN_API_KEY;

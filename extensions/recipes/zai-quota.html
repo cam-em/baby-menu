@@ -14,7 +14,7 @@
 
       <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
         <h2>Capability</h2>
-        <p>Show the authenticated Z.ai GLM Coding Plan quota windows, provider-reported usage, remaining percentage, and reset times in a user-installed Baby Menu widget.</p>
+        <p>Show the authenticated Z.ai GLM Coding Plan quota windows, provider-reported usage, remaining percentage, and reset times in an active installed Baby Menu widget.</p>
         <p>The sole quota source is <code>GET https://api.z.ai/api/monitor/usage/quota/limit</code>. A redacted approved probe with a <code>zai-coding-cn</code> API key returned HTTP 200 and two <code>CREDIT_LIMIT</code> records. The provider console contract identifies unit <code>3</code> as the five-hour window and unit <code>6</code> as the weekly window.</p>
         <p>Model catalog entries, per-request prices, local Pi token totals, and model API limit errors are not account quota and must never be used as fallbacks.</p>
         <p>Use real data only. Do not fabricate a percentage or reset when the source is missing or malformed.</p>
@@ -25,11 +25,9 @@
         <h2>Installation and Activation</h2>
         <ol>
           <li>Configure one explicit API-key source using the credential contract below. Restart Baby Menu after changing its launch environment.</li>
-          <li>In the Baby Menu composer, ask: <code>add a Z.ai GLM quota widget using the bundled Z.ai quota recipe</code>.</li>
-          <li>Keep the generated <code>zai-quota</code> extension after reviewing the live quota display.</li>
           <li>Open or reload the popover. The host invokes the visible-widget refresh and discovers <code>zai-quota/widget.tsx</code> and <code>zai-quota/server.ts</code> automatically.</li>
         </ol>
-        <p>This is intentionally a user-installed extension. Do not add a provider widget to Baby Menu's provider-neutral bundled default inventory, add provider-specific core IPC, or register it in <code>WidgetHost</code>.</p>
+        <p>Z.ai GLM quota is bundled as an active installed extension in Baby Menu. It operates through the extension system with no provider-specific core IPC or hardcoded registration in <code>WidgetHost</code>.</p>
       </section>
 
       <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
@@ -252,7 +250,7 @@ type ZaiQuotaViewState =
       <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
         <h2>Acceptance Criteria</h2>
         <ul>
-          <li>The implementation remains a user-installed <code>zai-quota</code> extension and the provider-neutral bundled widget inventory is unchanged.</li>
+          <li>The implementation is an active installed <code>zai-quota</code> extension in Baby Menu.</li>
           <li>The server action uses only the exact GET, fixed endpoint, required bearer header, no body, no redirect, a timeout, and a response cap.</li>
           <li>Credential resolution uses only the explicit Z.ai environment variable or the dedicated Baby Menu Keychain item and never reads Pi/browser state.</li>
           <li>Tests execute the generated server action and cover valid unit 3/6 windows, missing optional fields, malformed fields/envelopes, reset parsing, missing credential, HTTP 401/403, HTTP 429, HTTP 5xx, unavailable/network outcomes, same-credential stale cache, and credential-change cache rejection.</li>
