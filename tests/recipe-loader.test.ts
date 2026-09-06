@@ -17,6 +17,7 @@ describe("loadRecipes", () => {
       "copilot-quota",
       "cursor-quota",
       "grok-quota",
+      "zai-quota",
     ]);
     expect(recipes.every((recipe) => recipe.title.length > 0)).toBe(true);
   });
@@ -28,6 +29,7 @@ describe("loadRecipes", () => {
       new URL("../extensions/recipes/copilot-quota.html", import.meta.url),
       new URL("../extensions/recipes/cursor-quota.html", import.meta.url),
       new URL("../extensions/recipes/grok-quota.html", import.meta.url),
+      new URL("../extensions/recipes/zai-quota.html", import.meta.url),
     ];
 
     for (const recipeUrl of recipeUrls) {

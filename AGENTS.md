@@ -156,7 +156,7 @@ Do not write generated extension files, the local extension database, compiled m
 ### Recipes and extensions
 
 - Recipes are HTML files in `recipes/` inside the active extension workspace. `recipe-loader.ts` discovers `*.html`, sorts them, and extracts the title from `<title>` or first `<h1>`. They are intentionally HTML so the embedded agent can read them from its cwd and use embedded interactive demos.
-- Bundled quota recipes currently cover Claude Code, Codex, Cursor, GitHub Copilot, and Grok.
+- Bundled quota recipes currently cover Claude Code, Codex, Cursor, GitHub Copilot, Grok, and Z.ai GLM.
 - Each recipe owns its provider-specific acquisition and refresh contract.
 - Baby Menu ships a neutral extension platform, not opinionated third-party or provider widgets. The authoritative bundled default inventory is the `extensions` `extraResources` filter in `electron-builder.yml`; provider-specific widgets belong in user-installed extensions, never that inventory.
 - Extensions live in the active extension workspace under `<extension-id>/` and may include `widget.tsx`, `server.ts`, and local helper files; the workspace may also include one root `layout.tsx` that arranges active widgets.

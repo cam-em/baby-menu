@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en" data-theme="wireframe">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Z.ai GLM Quota Widget Recipe</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  </head>
+  <body class="bg-base-200 text-base-content">
+    <main class="mx-auto max-w-4xl space-y-5 p-6 text-base leading-7 sm:p-10 [&_code]:text-sm [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:text-lg [&_h3]:font-semibold [&_li]:mb-1 [&_li]:leading-7 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-6 [&_p]:mb-2 [&_p]:leading-7 [&_pre]:my-3 [&_pre_code]:text-sm [&_section]:space-y-3 [&_table]:text-sm [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-6">
+      <h1 class="text-3xl font-bold tracking-tight">Z.ai GLM Quota Widget Recipe</h1>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Capability</h2>
+        <p>Show the authenticated Z.ai GLM Coding Plan quota windows, provider-reported usage, remaining percentage, and reset times in a user-installed Baby Menu widget.</p>
+        <p>The sole quota source is <code>GET https://api.z.ai/api/monitor/usage/quota/limit</code>. A redacted approved probe with a <code>zai-coding-cn</code> API key returned HTTP 200 and two <code>CREDIT_LIMIT</code> records. The provider console contract identifies unit <code>3</code> as the five-hour window and unit <code>6</code> as the weekly window.</p>
+        <p>Model catalog entries, per-request prices, local Pi token totals, and model API limit errors are not account quota and must never be used as fallbacks.</p>
+        <p>Use real data only. Do not fabricate a percentage or reset when the source is missing or malformed.</p>
+        <p>This recipe is self-contained and requires no external implementation guide.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Installation and Activation</h2>
+        <ol>
+          <li>Configure one explicit API-key source using the credential contract below. Restart Baby Menu after changing its launch environment.</li>
+          <li>In the Baby Menu composer, ask: <code>add a Z.ai GLM quota widget using the bundled Z.ai quota recipe</code>.</li>
+          <li>Keep the generated <code>zai-quota</code> extension after reviewing the live quota display.</li>
+          <li>Open or reload the popover. The host invokes the visible-widget refresh and discovers <code>zai-quota/widget.tsx</code> and <code>zai-quota/server.ts</code> automatically.</li>
+        </ol>
+        <p>This is intentionally a user-installed extension. Do not add a provider widget to Baby Menu's provider-neutral bundled default inventory, add provider-specific core IPC, or register it in <code>WidgetHost</code>.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Recommended Data Source Order</h2>
+        <table class="table table-zebra">
+          <thead>
+            <tr><th>Priority</th><th>Source</th><th>Contract</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td><code>ZAI_CODING_CN_API_KEY</code></td><td>The provider-supported China Coding Plan API key path confirmed against the quota endpoint, explicitly inherited by the Baby Menu process.</td></tr>
+            <tr><td>2</td><td>Dedicated Baby Menu macOS Keychain item</td><td>The same approved API key copied there by the operator, under service <code>com.kunchenguid.baby-menu.zai-quota</code> and account <code>zai-coding-cn</code>.</td></tr>
+            <tr><td>3</td><td>Credential-bound in-memory last-good snapshot</td><td>Stale normalized data for eligible transient failures during the same app/module lifetime only.</td></tr>
+          </tbody>
+        </table>
+        <p>There is no browser or model-routing fallback. Never inspect Pi's private <code>auth.json</code>, another tool's credential store, browser cookies, browser localStorage, browser session state, or a Z.ai console login.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Explicit Credential Configuration</h2>
+        <p>Credential reads belong only in <code>zai-quota/server.ts</code>. The renderer must never receive, read, persist, or submit a key.</p>
+        <p>The environment variable above is the confirmed supported non-browser API-key path. A normal GUI launch may not inherit shell-only exports, so the operator must put it in Baby Menu's actual launch environment and restart the app. Do not assume that a key saved by Pi is available to Baby Menu.</p>
+        <p>On macOS, an operator may instead create a dedicated Keychain item without placing the secret in command arguments or shell history. Run this command and enter the key only at the secure prompt:</p>
+        <pre class="mockup-code overflow-auto p-4"><code>/usr/bin/security add-generic-password -U \
+  -a zai-coding-cn \
+  -s com.kunchenguid.baby-menu.zai-quota \
+  -w</code></pre>
+        <p>Use <code>/usr/bin/security find-generic-password -s com.kunchenguid.baby-menu.zai-quota -a &lt;account&gt; -w</code> from the server action with an argument array, <code>shell: false</code>, ignored stdin, a five-second timeout, and bounded stdout. Hold stdout only in memory and discard it after constructing the request.</p>
+        <p>Do not pass the key after <code>-w</code>, put it in source, write it to SQLite, forward it through <code>window.babyMenu</code>, or print command output. If no explicit environment or dedicated Keychain source exists, return <code>authentication-required</code> before any network request.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Exact Provider Request</h2>
+        <pre class="mockup-code overflow-auto p-4"><code>GET https://api.z.ai/api/monitor/usage/quota/limit
+Authorization: Bearer &lt;explicit API key&gt;</code></pre>
+        <ul>
+          <li>Use exactly this HTTPS origin and path with no query string.</li>
+          <li>Set <code>method: "GET"</code>, <code>redirect: "error"</code>, and one 15-second whole-request abort deadline.</li>
+          <li>Set only the required <code>Authorization</code> header. Do not add cookies, organization/project guesses, browser headers, referrers, content headers, or a request body.</li>
+          <li>Do not send prompts, source code, paths, logs, project metadata, personal data, account identifiers, or any other Baby Menu content.</li>
+          <li>Apply a 64 KiB streamed response cap before JSON parsing. Do not retry automatically.</li>
+        </ul>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Verified Response Contract</h2>
+        <p>The successful envelope has <code>data.limits[]</code>. Parse only the allowlisted fields below. Unknown top-level, envelope, limit, and detail fields are discarded rather than copied into renderer state or cache.</p>
+        <table class="table table-zebra">
+          <thead>
+            <tr><th>Provider field</th><th>Validation and normalized meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>type</code></td><td>Required bounded provider identifier. Preserve it exactly. <code>CREDIT_LIMIT</code> is the confirmed credit-window type.</td></tr>
+            <tr><td><code>unit</code></td><td>Required non-negative integer. Preserve it exactly. Only <code>CREDIT_LIMIT + 3</code> and <code>CREDIT_LIMIT + 6</code> receive semantic labels.</td></tr>
+            <tr><td><code>percentage</code></td><td>Optional finite number in <code>0..100</code>, confirmed by the provider UI as percent used. Preserve it as <code>percentage</code>; derive <code>percentRemaining = 100 - percentage</code> only when present.</td></tr>
+            <tr><td><code>currentValue</code></td><td>Optional finite non-negative number or bounded numeric string. Preserve the value without inventing a semantic name or coercing a missing value.</td></tr>
+            <tr><td><code>usage</code></td><td>Optional finite non-negative number or bounded numeric string. Preserve the value without using it to manufacture a percentage.</td></tr>
+            <tr><td><code>nextResetTime</code></td><td>Optional valid provider date string or epoch-millisecond number. Preserve the validated scalar and also normalize it to ISO 8601 as <code>resetAt</code>. Reject epoch-second guesses. Never substitute now, zero, or an elapsed-time estimate.</td></tr>
+            <tr><td><code>usageDetails[].modelCode</code></td><td>Optional bounded model identifier confirmed by the provider console. Preserve the code; do not guess a display name.</td></tr>
+            <tr><td><code>usageDetails[].usage</code></td><td>Optional finite non-negative number or bounded numeric string confirmed by the provider console. Preserve only this value.</td></tr>
+          </tbody>
+        </table>
+        <p>Unit <code>3</code> means <strong>5-hour</strong> only when <code>type === "CREDIT_LIMIT"</code>. Unit <code>6</code> means <strong>Weekly</strong> only with that same type. An unknown type or unit may remain visible as its literal provider type and unit, but must not inherit one of these labels.</p>
+        <p>Missing or null optional fields stay absent. Do not turn them into zero, an empty detail, or a reset. A present field with an incompatible type, invalid percentage, invalid date, malformed detail array, missing required <code>type</code>/<code>unit</code>, empty limits array, or missing <code>data.limits</code> is <code>malformed-response</code>.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Normalized Types</h2>
+        <pre class="mockup-code overflow-auto p-4"><code>type ZaiQuotaWindow = {
+  id: string;                         // `${type}:${unit}`
+  label?: "5-hour" | "Weekly";       // only CREDIT_LIMIT units 3 and 6
+  type: string;
+  unit: number;
+  percentage?: number;                // provider percent USED
+  percentRemaining?: number;          // 100 - percentage, only when reported
+  currentValue?: number | string;
+  usage?: number | string;
+  nextResetTime?: string | number;    // validated provider scalar
+  resetAt?: string;                   // normalized ISO 8601
+  usageDetails?: Array&lt;{
+    modelCode?: string;
+    usage?: number | string;
+  }&gt;;
+};
+
+type ZaiQuotaSnapshot = {
+  schemaVersion: 1;
+  source: "zai-quota-api";
+  endpoint: "https://api.z.ai/api/monitor/usage/quota/limit";
+  credentialSource: "zai-coding-cn-env" | "baby-menu-keychain";
+  windows: ZaiQuotaWindow[];
+  refreshedAt: string;
+  stale: boolean;
+};
+
+type ZaiQuotaFailure = {
+  status:
+    | "authentication-required"
+    | "rate-limit"
+    | "service-error"
+    | "malformed-response"
+    | "unavailable";
+  message: string;                     // fixed safe copy only
+  httpStatus?: number;                 // safe status only
+  retryAt?: string;                    // parsed Retry-After only
+  diagnostic?: "timeout" | "network" | "response-too-large";
+};
+
+type ZaiQuotaResult =
+  | {
+      ok: true;
+      status: "fresh" | "stale";
+      checkedAt: string;
+      data: ZaiQuotaSnapshot;
+      warning?: ZaiQuotaFailure;
+    }
+  | ({ ok: false; checkedAt: string } &amp; ZaiQuotaFailure);
+
+type ZaiQuotaViewState =
+  | { status: "loading"; previous?: ZaiQuotaResult }
+  | { status: "settled"; result: ZaiQuotaResult };</code></pre>
+        <p>Loading is renderer state, not a fabricated server response. During a later refresh, retain a prior fresh or stale snapshot and add an updating indicator instead of replacing it with an empty loading view.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Implementation Contract</h2>
+        <p>Create <code>zai-quota/server.ts</code>, <code>store.ts</code>, <code>components.tsx</code>, and <code>widget.tsx</code>. Components exports React components only; store owns state and refresh; widget exports the descriptor.</p>
+        <p>All credential, Keychain, network, response-bound, JSON, parser, and cache work belongs in <code>server.ts</code>. Expose only <code>actions.getQuota</code> and invoke it as <code>window.babyMenu.capabilities.invoke("zai-quota", "getQuota")</code>.</p>
+        <p>Server action response shape is <code>ZaiQuotaResult</code>. It contains normalized non-secret values only.</p>
+        <p>Single-flight the complete acquisition. Use an extension-scoped module variable named like <code>zaiQuotaLastGoodCache</code> for one in-memory normalized snapshot. Guard reuse with a process-local keyed digest of the exact credential and safe credential source; never return, log, or persist the digest. A changed credential cannot reuse the previous snapshot.</p>
+        <p>Do not persist a last-good row because this endpoint does not return a confirmed safe principal for cross-restart cache binding. If a future provider contract supplies one, any durable table must be extension-prefixed, such as <code>zai_quota_cache</code>, and may contain only normalized quota/reset/freshness/source status. It must never contain a key, credential digest, account field, or raw response.</p>
+        <p>Only a successful exact-source response updates last-good data. Eligible timeout, network, rate-limit, 5xx, incompatible JSON, and malformed-shape failures may return the same-credential snapshot as <code>status: "stale"</code>, with its original <code>refreshedAt</code>, <code>stale: true</code>, and a safe structured warning. Missing or rejected credentials never render stale data.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Error Classification</h2>
+        <table class="table table-zebra">
+          <thead>
+            <tr><th>Condition</th><th>Status</th><th>Rules</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>No explicit environment or dedicated Keychain key</td><td><code>authentication-required</code></td><td>Return before network access and explain the supported configuration.</td></tr>
+            <tr><td>HTTP 401 or 403</td><td><code>authentication-required</code></td><td>Do not read browser auth, another local identity, or stale cache.</td></tr>
+            <tr><td>HTTP 429</td><td><code>rate-limit</code></td><td>Parse only a valid <code>Retry-After</code> seconds/date into <code>retryAt</code>.</td></tr>
+            <tr><td>HTTP 5xx</td><td><code>service-error</code></td><td>Never include response text.</td></tr>
+            <tr><td>Invalid JSON, oversized body, or incompatible confirmed fields</td><td><code>malformed-response</code></td><td>Do not partially promote a new snapshot.</td></tr>
+            <tr><td>Timeout, network failure, redirect, endpoint removal, or other non-auth HTTP status</td><td><code>unavailable</code></td><td>Use only fixed allowlisted diagnostics.</td></tr>
+          </tbody>
+        </table>
+        <p>Error objects and logs must never interpolate caught exception messages, provider response bodies, headers, key fragments, account fields, or browser state.</p>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Renderer and Refresh Contract</h2>
+        <p>Export a <code>RefreshableBabyMenuWidget</code> with <code>viewRefreshIntervalMs: 600_000</code> and a shared <code>refreshView</code>. Ten minutes matches the provider's observed quota freshness and is the slowest acceptable visible cadence.</p>
+        <p>The host call is the startup/open refresh. Do not issue a mount-time request, start a timer, or add a background task. Quota is needed when the popover is visible, not while it is closed.</p>
+        <p>Render a compact 504px popover body using <code>@babymenu/ui</code>, token Tailwind classes, <code>Progress</code>, <code>StatusDot</code>, and <code>Skeleton</code>. Do not add a card background, gradient, custom palette, emoji, or a second accent.</p>
+        <ul>
+          <li>Use <code>Z.AI · GLM</code> as the tracked-caps key.</li>
+          <li>For each reported window, show remaining percentage as the primary value and feed that same remaining value to a meter labeled remaining. Show provider percentage separately as percent used.</li>
+          <li>Show <code>--</code> rather than zero when percentage or reset is absent.</li>
+          <li>Show reset only from valid <code>resetAt</code>. Round display values only; keep exact values in state.</li>
+          <li>Loading shows a quiet skeleton. Updating keeps last-good values visible. Fresh uses a mint status dot; stale uses amber and visibly says cached/stale.</li>
+          <li>Authentication-required copy names the supported environment/Keychain setup. Rate-limit, service-error, malformed-response, and unavailable each use distinct accurate copy.</li>
+          <li>Never put credentials, account fields, raw provider values outside the allowlist, raw JSON, headers, exception text, or credential digests in the DOM.</li>
+        </ul>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Privacy and Security Constraints</h2>
+        <ul>
+          <li>The quota GET carries no project or personal content. It contains only the explicit Z.ai bearer required for authentication.</li>
+          <li>Never scrape browser cookies/localStorage, use <code>withCredentials</code>, inspect a browser profile, or launch a browser login.</li>
+          <li>Never read Pi's or another tool's private auth store by assumption. Requiring explicit operator configuration is safer than silently borrowing an identity.</li>
+          <li>Never persist or print API keys, key fragments, credential digests, browser state, account ids, emails, headers, raw JSON, provider error text, or a raw provider response.</li>
+          <li>Discard all response fields except the normalized allowlist. Do not send provider data to telemetry or another model.</li>
+          <li>Do not send personal data to GLM/Z.ai. This quota operation needs no source code, prompt, filename, path, log, or project metadata.</li>
+        </ul>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Low-risk Live Verification</h2>
+        <ol>
+          <li>Verify only that an explicit environment variable or the dedicated Keychain item is present. Do not print its value, length, prefix, hash, or source command output.</li>
+          <li>Invoke <code>zai-quota.getQuota</code> once against the fixed endpoint. Capture the body only in bounded process memory.</li>
+          <li>Print or record only a fixed status classification, the safe source id, whether <code>CREDIT_LIMIT:3</code> and <code>CREDIT_LIMIT:6</code> were present, and whether each had a valid percentage/reset. Do not print raw JSON, account fields, provider errors, or credential material.</li>
+          <li>Open the popover and compare the normalized 5-hour and weekly values and resets to the same in-memory action result. Leave no payload, screenshot containing account data, credential file, or diagnostic dump behind.</li>
+          <li>If no explicit credential is configured, stop at <code>authentication-required</code>. Do not fall back to Pi or browser state to make the check pass.</li>
+        </ol>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Interactive Demo</h2>
+        <div class="space-y-4">
+          <div class="card border border-base-300 bg-base-100 p-5">
+            <div class="mb-4 flex items-center justify-between">
+              <span class="font-semibold tracking-widest">Z.AI · GLM</span>
+              <span class="badge badge-outline">LIVE SOURCE</span>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="space-y-2">
+                <div class="text-sm uppercase tracking-wider opacity-60">5-hour</div>
+                <div class="text-lg">provider % remaining</div>
+                <progress class="progress w-full"></progress>
+                <div class="text-sm opacity-60">provider % used · verified reset</div>
+              </div>
+              <div class="space-y-2">
+                <div class="text-sm uppercase tracking-wider opacity-60">Weekly</div>
+                <div class="text-lg">provider % remaining</div>
+                <progress class="progress w-full"></progress>
+                <div class="text-sm opacity-60">provider % used · verified reset</div>
+              </div>
+            </div>
+          </div>
+          <div class="alert alert-warning" role="status"><span>Stale layout: keep last-good normalized values visible and label them cached while a safe failure message explains the refresh result.</span></div>
+          <div class="alert" role="status"><span>Unavailable layout: show explicit credential setup or the exact structured provider-state category, never a fabricated quota.</span></div>
+          <p class="text-sm">This is a field-layout schematic. It intentionally contains no sample quota, reset, account, or credential data.</p>
+        </div>
+      </section>
+
+      <section class="card border border-base-300 bg-base-100 p-6 shadow-sm">
+        <h2>Acceptance Criteria</h2>
+        <ul>
+          <li>The implementation remains a user-installed <code>zai-quota</code> extension and the provider-neutral bundled widget inventory is unchanged.</li>
+          <li>The server action uses only the exact GET, fixed endpoint, required bearer header, no body, no redirect, a timeout, and a response cap.</li>
+          <li>Credential resolution uses only the explicit Z.ai environment variable or the dedicated Baby Menu Keychain item and never reads Pi/browser state.</li>
+          <li>Tests execute the generated server action and cover valid unit 3/6 windows, missing optional fields, malformed fields/envelopes, reset parsing, missing credential, HTTP 401/403, HTTP 429, HTTP 5xx, unavailable/network outcomes, same-credential stale cache, and credential-change cache rejection.</li>
+          <li>Behavioral request tests prove there is no query, body, cookie, browser header, guessed organization header, or project/personal content.</li>
+          <li>Boundary tests prove secrets, unknown account fields, raw provider fields, raw failures, and raw responses do not appear in results, logs, the DOM, or durable SQLite state.</li>
+          <li>Loading, updating, fresh, stale, authentication-required, rate-limit, service-error, malformed-response, and unavailable states remain distinct and never replace missing data with zero or a fabricated reset.</li>
+          <li>The widget refreshes only while visible, no faster than every ten minutes, with no extension-owned timer or background task.</li>
+          <li>A redacted live check reports only safe classifications and field presence. It never emits credentials or provider payloads.</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>
