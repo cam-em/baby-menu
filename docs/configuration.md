@@ -61,6 +61,25 @@ Examples:
 | Qwen Code | `qwen --acp` |
 | OpenCode | `npx -y opencode-ai acp` |
 
+## Z.ai GLM quota extension
+
+Z.ai GLM quota support is bundled as an active installed extension in Baby Menu.
+Configure the endpoint-verified `ZAI_CODING_CN_API_KEY` in Baby Menu's actual launch environment or the dedicated Keychain item and restart the app.
+
+A normal GUI launch may not inherit shell-only exports.
+On macOS, you can instead copy the API key into a dedicated Baby Menu Keychain item without putting it in a command argument or shell history:
+
+```sh
+/usr/bin/security add-generic-password -U \
+  -a zai-coding-cn \
+  -s com.kunchenguid.baby-menu.zai-quota \
+  -w
+```
+
+The final `-w` prompts securely.
+The extension reads only those explicit sources from its server action; it does not inspect Pi auth files, browser cookies, localStorage, or browser sessions.
+Its quota request sends no project or personal content.
+
 ## Updates
 
 Update with Homebrew:

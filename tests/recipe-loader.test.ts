@@ -17,8 +17,11 @@ describe("loadRecipes", () => {
       "copilot-quota",
       "cursor-quota",
       "grok-quota",
+      "zai-quota",
     ]);
     expect(recipes.every((recipe) => recipe.title.length > 0)).toBe(true);
+    const zai = recipes.find((recipe) => recipe.id === "zai-quota");
+    expect(zai?.title).toBe("Z.ai GLM Quota Widget Recipe");
   });
 
   it("keeps quota recipes self-contained for agent implementation", async () => {

@@ -22,6 +22,7 @@ extraResources:
       - babymenu-env.d.ts
       - recipes/**
       - hello-world/**
+      - zai-quota/**
   - from: assets/tray
     to: tray
     filter:

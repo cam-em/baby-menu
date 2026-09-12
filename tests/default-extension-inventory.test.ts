@@ -6,7 +6,7 @@ const extensionsDir = resolve(import.meta.dirname, "../extensions");
 
 // This is the product's deliberately small, provider-neutral default inventory.
 // User-installed extensions remain unrestricted and are discovered at runtime.
-const NEUTRAL_BUNDLED_EXTENSION_IDS = ["hello-world"] as const;
+const NEUTRAL_BUNDLED_EXTENSION_IDS = ["hello-world", "zai-quota"] as const;
 const EXPECTED_EXTENSION_RESOURCE = `  - from: extensions
     to: extensions-template
     filter:
@@ -14,6 +14,7 @@ const EXPECTED_EXTENSION_RESOURCE = `  - from: extensions
       - babymenu-env.d.ts
       - recipes/**
       - hello-world/**
+      - zai-quota/**
 `;
 
 async function sourceExtensionIds(): Promise<string[]> {

@@ -53,7 +53,7 @@ Settings lets you toggle launch-at-login, pick the embedded agent, and manage cu
 
 ## Install Details
 
-The packaged app stores extensions, the local database, caches, agent sessions, and preferences under `~/.baby-menu`, so upgrades preserve user-created widgets and extension state. Baby Menu refreshes its provider-neutral managed defaults from the release on each launch.
+The packaged app stores extensions, the local database, caches, agent sessions, and preferences under `~/.baby-menu`, so upgrades preserve user-created widgets and extension state. Baby Menu refreshes its managed defaults from the release on each launch.
 If `~/.baby-menu/extensions` is a symlink, Baby Menu seeds bundled defaults and compiles widget or layout CSS from the resolved writable target while leaving the symlink itself in place.
 
 Update with Homebrew:
@@ -102,8 +102,9 @@ For agent selection, custom ACP agents, telemetry, and environment flags, see [d
 - **Three processes, one bridge** - the renderer never touches git, the agent, or the filesystem; everything goes through `window.babyMenu`.
 - **Recipes are specs, not prompts** - HTML files under `extensions/recipes/` describe a widget's capability and data sources; the agent reads the matching recipe before implementing.
   For live or system data, recipe guidance requires the agent to inspect the real source before parsing it and verify the finished widget against that same data before reporting done.
-  The bundled quota recipes cover Claude Code, Codex, Cursor, GitHub Copilot, and Grok.
-  Cursor, GitHub Copilot, and Grok quota recipes avoid separate quota helpers such as `quota-axi`; each recipe is authoritative for its provider-owned state, API, and credential-refresh contract.
+  The bundled quota recipes cover Claude Code, Codex, Cursor, GitHub Copilot, Grok, and Z.ai GLM.
+  Cursor, GitHub Copilot, Grok, and Z.ai quota recipes avoid separate quota helpers such as `quota-axi`; each recipe is authoritative for its provider-owned state, API, and credential-refresh contract.
+  Z.ai GLM quota is bundled as an active installed extension and requires an explicit endpoint-verified credential; see [configuration](docs/configuration.md#zai-glm-quota-extension) for activation.
 - **Bundled ACP adapters** - built-in Claude Code and Codex run through clean-room adapters isolated from user-level agent configuration.
 - **Diff-derived Keep / Undo** - the change bar reflects the actual git or snapshot diff, not agent wording, and clears itself when nothing changed on disk.
 - **Extensions own their capabilities** - widgets, layouts, settings sections, server actions, background tasks, and a shared SQLite store, all behind the stable bridge.
